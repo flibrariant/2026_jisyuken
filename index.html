@@ -94,6 +94,30 @@
       color: #25344c; font-family: "Yu Gothic UI", "Yu Gothic", Meiryo, sans-serif;
       font-size: 14px; line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere;
     }
+    .fill { padding: 22px 28px 26px; border-top: 2px dashed #c3d4ee; background: linear-gradient(180deg, #fdfbf3, #f8fafc); }
+    .fill-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .fill-head h3 { margin: 0; color: var(--navy); font-size: 17px; }
+    .ghost-button {
+      padding: 7px 12px; border: 1px solid #b8c9e5; border-radius: 10px;
+      color: var(--blue); background: white; cursor: pointer; font-size: 13px; font-weight: 800;
+    }
+    .ghost-button:hover { background: #f0f6ff; }
+    .fill-note { margin: 8px 0 16px; color: var(--muted); font-size: 13px; }
+    .field { display: block; margin-bottom: 14px; }
+    .field-label { display: inline-block; margin-bottom: 6px; padding: 5px 11px; border-radius: 9px; font-size: 13px; font-weight: 800; }
+    .field textarea {
+      display: block; width: 100%; padding: 12px 14px; border: 1px solid #b9cbe6; border-radius: 12px;
+      color: var(--ink); background: white; font-family: inherit; font-size: 15px; line-height: 1.7;
+      resize: vertical;
+    }
+    .field textarea::placeholder { color: #9aa8bd; }
+    .field textarea:focus-visible { outline: 3px solid var(--yellow); outline-offset: 1px; border-color: var(--blue); }
+    .preview { margin-top: 6px; }
+    .preview summary { color: var(--blue); cursor: pointer; font-size: 13px; font-weight: 800; }
+    .preview-text {
+      max-height: 260px; margin-top: 10px; padding: 14px 16px;
+      border: 1px solid var(--line); border-radius: 12px; background: white; font-size: 13px;
+    }
     .card-foot { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 16px 28px 22px; border-top: 1px solid var(--line); }
     .card-foot small { color: var(--muted); }
     .mini-button { padding: 10px 14px; min-width: 138px; box-shadow: none; }
@@ -121,6 +145,9 @@
       .copy-button { width: 100%; }
       .input-guide { grid-template-columns: repeat(2, 1fr); padding: 0 20px 18px; }
       pre { padding: 22px 20px 26px; max-height: 500px; font-size: 13px; }
+      .fill { padding: 20px 20px 22px; }
+      .fill-head { flex-direction: column; align-items: stretch; }
+      .preview-text { padding: 12px; }
       .card-foot { align-items: stretch; flex-direction: column; padding: 14px 20px 20px; }
     }
     @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
@@ -131,7 +158,7 @@
     <header class="hero">
       <div class="eyebrow">QommonsAI 自主研 2026｜8月6日キックオフ</div>
       <h1>班ワーク用<br />プロンプト</h1>
-      <p class="lead">班で話した言葉をタネに、QommonsAIで可能性を広げるための2本です。全文をコピーしてQommonsAIへ貼り付け、末尾の入力欄だけを書き換えてください。</p>
+      <p class="lead">班で話した言葉をタネに、QommonsAIで可能性を広げるための2本です。このページの入力欄に班の言葉を書き込み、「全文をコピー」を押すと、入力済みのプロンプトがそのままコピーされます。</p>
       <nav class="quick-nav" aria-label="プロンプトへ移動">
         <a class="quick-link" href="#prompt1">活動アイデアを6案出す <span>実践01 ↓</span></a>
         <a class="quick-link" href="#prompt2">3種類の活動形式へ変形する <span>実践02 ↓</span></a>
@@ -141,12 +168,12 @@
     <section class="guide" aria-labelledby="howto">
       <h2 id="howto">使い方は4ステップ</h2>
       <div class="steps">
-        <div class="step"><b>STEP 1</b>「全文をコピー」を押す</div>
-        <div class="step"><b>STEP 2</b>QommonsAIへ貼り付ける</div>
-        <div class="step"><b>STEP 3</b>Ctrl＋Endで末尾へ移動</div>
-        <div class="step"><b>STEP 4</b>入力欄を班の言葉へ変えて送信</div>
+        <div class="step"><b>STEP 1</b>ページ下部の入力欄へ班の言葉を書き込む</div>
+        <div class="step"><b>STEP 2</b>「全文をコピー」を押す</div>
+        <div class="step"><b>STEP 3</b>QommonsAIへ貼り付ける</div>
+        <div class="step"><b>STEP 4</b>そのまま送信する</div>
       </div>
-      <div class="notice">全班で同じモデルを使用します。PCやアカウントが足りない班は、ChatGPTへ同じプロンプトを貼り付けて構いません。</div>
+      <div class="notice">入力欄は空のままでも構いません（その場合は「ここに入力」の見本文のままコピーされます）。入力内容はこの端末のブラウザにだけ保存され、送信・共有はされません。全班で同じモデルを使用します。PCやアカウントが足りない班は、ChatGPTへ同じプロンプトを貼り付けて構いません。</div>
     </section>
 
     <section class="prompt-card" id="prompt1">
@@ -156,7 +183,7 @@
           <h2>付箋のタネから、活動アイデアを6案出す</h2>
           <p>全文を貼り付け、A3に貼った青・黄・赤の付箋を、一文ずつ整理・要約せず入力します。</p>
         </div>
-        <button class="copy-button" type="button" data-copy-target="prompt1text">全文をコピー</button>
+        <button class="copy-button" type="button" data-copy-target="prompt1">全文をコピー</button>
       </div>
       <div class="input-guide" style="grid-template-columns: repeat(3, 1fr)" aria-label="入力する内容">
         <div class="input-chip blue">青｜想像していた自主研</div>
@@ -164,7 +191,7 @@
         <div class="input-chip red">赤｜置いていけそうなもの</div>
       </div>
       <div class="prompt-wrap">
-        <pre id="prompt1text">&lt;役割&gt;
+        <pre id="prompt1body">&lt;役割&gt;
 あなたは、自治体職員によるQommonsAI自主研の発想パートナーです。
 参加者の代わりに結論を決めるのではなく、参加者が選び直せる、具体的で異なる選択肢を広げてください。
 &lt;/役割&gt;
@@ -213,24 +240,34 @@
 - 各セルは60字以内
 - IDはD1～D6とする
 - 「元にしたタネ」は、青・黄・赤のどれに基づくかを示す
-&lt;/出力形式&gt;
-
-&lt;班の入力&gt;
-次の3欄へ、A3に貼られた付箋の一文を、色ごとに1枚ずつ箇条書きで入力してください。整理・要約・言い換えはしません。
-
-【青｜想像していた自主研】
-- ここに青い付箋の一文を入力
-
-【黄｜持ち帰れたらうれしいもの】
-- ここに黄色い付箋の一文を入力
-
-【赤｜置いていけそうな小さな出来事・疑問・途中経過】
-- ここに赤い付箋の一文を入力
-&lt;/班の入力&gt;</pre>
+&lt;/出力形式&gt;</pre>
+        <div class="fill" data-fill-for="prompt1">
+          <div class="fill-head">
+            <h3>&lt;班の入力&gt;｜ここに書き込みます</h3>
+            <button class="ghost-button" type="button" data-clear-fill="prompt1">入力をクリア</button>
+          </div>
+          <p class="fill-note">付箋の一文を、1行に1枚ずつ入力してください。整理・要約・言い換えはしません。書き込んだ内容は「全文をコピー」に反映されます。</p>
+          <label class="field">
+            <span class="field-label blue">【青｜想像していた自主研】</span>
+            <textarea data-field="blue" rows="3" spellcheck="false" placeholder="例）気軽に集まって話す場だと思っていた&#10;例）もっと難しい研究をするのかと思っていた"></textarea>
+          </label>
+          <label class="field">
+            <span class="field-label yellow">【黄｜持ち帰れたらうれしいもの】</span>
+            <textarea data-field="yellow" rows="3" spellcheck="false" placeholder="例）明日の仕事ですぐ試せる使い方&#10;例）他課の人と話せるきっかけ"></textarea>
+          </label>
+          <label class="field">
+            <span class="field-label red">【赤｜置いていけそうな小さな出来事・疑問・途中経過】</span>
+            <textarea data-field="red" rows="3" spellcheck="false" placeholder="例）議事録をAIに要約させたが、うまくいかなかった&#10;例）どこまで入力していいのか分からない"></textarea>
+          </label>
+          <details class="preview">
+            <summary>コピーされる末尾を確認する</summary>
+            <pre class="preview-text" data-preview="prompt1"></pre>
+          </details>
+        </div>
       </div>
       <div class="card-foot">
         <small>出力された6案から「試したい1案」と「意外だが気になる1案」を選びます。</small>
-        <button class="copy-button mini-button" type="button" data-copy-target="prompt1text">全文をコピー</button>
+        <button class="copy-button mini-button" type="button" data-copy-target="prompt1">全文をコピー</button>
       </div>
     </section>
 
@@ -241,7 +278,7 @@
           <h2>班の仮案を、3種類の活動形式へ変形する</h2>
           <p>班の仮案と、その中でなくしたくない仕組み・避けたい負担を入力します。</p>
         </div>
-        <button class="copy-button" type="button" data-copy-target="prompt2text">全文をコピー</button>
+        <button class="copy-button" type="button" data-copy-target="prompt2">全文をコピー</button>
       </div>
       <div class="input-guide" style="grid-template-columns: repeat(3, 1fr)" aria-label="入力する内容">
         <div class="input-chip blue">班の仮案</div>
@@ -249,7 +286,7 @@
         <div class="input-chip red">変えたい・避けたい負担</div>
       </div>
       <div class="prompt-wrap">
-        <pre id="prompt2text">&lt;役割&gt;
+        <pre id="prompt2body">&lt;役割&gt;
 あなたは、自治体職員によるQommonsAI自主研の活動形式デザインパートナーです。
 班が仮案の中で大事にした仕組みを保ちながら、参加負担と関わり方が異なる3案へ具体化してください。
 &lt;/役割&gt;
@@ -290,17 +327,34 @@
 表の後に「班で作り替えるときの比較軸」を3点だけ箇条書きしてください。
 3案は、そのまま選ぶほか、混ぜる、一部だけ借りる、別案をつくるための材料です。
 どの案を選ぶべきかは推薦せず、最終的な作り替えは班に委ねてください。
-&lt;/出力形式&gt;
-
-&lt;班の入力&gt;
-【班の仮案】ここに入力
-【残したい仕組み｜この仮案の、なくしたくない工夫】ここに入力
-【変えたいところ・避けたい負担】ここに入力
-&lt;/班の入力&gt;</pre>
+&lt;/出力形式&gt;</pre>
+        <div class="fill" data-fill-for="prompt2">
+          <div class="fill-head">
+            <h3>&lt;班の入力&gt;｜ここに書き込みます</h3>
+            <button class="ghost-button" type="button" data-clear-fill="prompt2">入力をクリア</button>
+          </div>
+          <p class="fill-note">実践01で選んだ仮案と、そこで大事にしたいことを書き込みます。書き込んだ内容は「全文をコピー」に反映されます。</p>
+          <label class="field">
+            <span class="field-label blue">【班の仮案】</span>
+            <textarea data-field="plan" rows="3" spellcheck="false" placeholder="例）Discordに「今週AIに聞いてみたこと」を一文だけ投稿し合う"></textarea>
+          </label>
+          <label class="field">
+            <span class="field-label yellow">【残したい仕組み｜この仮案の、なくしたくない工夫】</span>
+            <textarea data-field="keep" rows="3" spellcheck="false" placeholder="例）うまくいかなかった話も出せること"></textarea>
+          </label>
+          <label class="field">
+            <span class="field-label red">【変えたいところ・避けたい負担】</span>
+            <textarea data-field="change" rows="3" spellcheck="false" placeholder="例）全員が同じ時間に集まる必要があるところ"></textarea>
+          </label>
+          <details class="preview">
+            <summary>コピーされる末尾を確認する</summary>
+            <pre class="preview-text" data-preview="prompt2"></pre>
+          </details>
+        </div>
       </div>
       <div class="card-foot">
         <small>3案は部品です。選ぶ・混ぜる・一部だけ借りる・別案をつくる、のどれでも構いません。</small>
-        <button class="copy-button mini-button" type="button" data-copy-target="prompt2text">全文をコピー</button>
+        <button class="copy-button mini-button" type="button" data-copy-target="prompt2">全文をコピー</button>
       </div>
     </section>
 
@@ -325,6 +379,112 @@
     const toast = document.getElementById('toast');
     let toastTimer;
 
+    const STORAGE_KEY = 'jisyuken-2026-fill-v1';
+
+    const PROMPTS = {
+      prompt1: {
+        bodyId: 'prompt1body',
+        intro: '次の3欄へ、A3に貼られた付箋の一文を、色ごとに1枚ずつ箇条書きで入力してください。整理・要約・言い換えはしません。',
+        separator: '\n\n',
+        fields: [
+          { key: 'blue', heading: '【青｜想像していた自主研】', style: 'bullets', fallback: 'ここに青い付箋の一文を入力' },
+          { key: 'yellow', heading: '【黄｜持ち帰れたらうれしいもの】', style: 'bullets', fallback: 'ここに黄色い付箋の一文を入力' },
+          { key: 'red', heading: '【赤｜置いていけそうな小さな出来事・疑問・途中経過】', style: 'bullets', fallback: 'ここに赤い付箋の一文を入力' }
+        ]
+      },
+      prompt2: {
+        bodyId: 'prompt2body',
+        intro: '',
+        separator: '\n',
+        fields: [
+          { key: 'plan', heading: '【班の仮案】', style: 'inline', fallback: 'ここに入力' },
+          { key: 'keep', heading: '【残したい仕組み｜この仮案の、なくしたくない工夫】', style: 'inline', fallback: 'ここに入力' },
+          { key: 'change', heading: '【変えたいところ・避けたい負担】', style: 'inline', fallback: 'ここに入力' }
+        ]
+      }
+    };
+
+    function loadStore() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {};
+      } catch (error) {
+        return {};
+      }
+    }
+
+    function saveStore(store) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+      } catch (error) {
+        /* プライベートモードなどで保存できない場合は何もしない */
+      }
+    }
+
+    function textareaFor(name, key) {
+      return document.querySelector('[data-fill-for="' + name + '"] [data-field="' + key + '"]');
+    }
+
+    function buildFillBlock(name) {
+      const config = PROMPTS[name];
+      const parts = config.fields.map((field) => {
+        const area = textareaFor(name, field.key);
+        const lines = (area ? area.value : '')
+          .split('\n')
+          .map((line) => line.replace(/^[-・\s]+/, '').trim())
+          .filter(Boolean);
+        if (field.style === 'bullets') {
+          const body = lines.length ? lines.map((line) => '- ' + line) : ['- ' + field.fallback];
+          return field.heading + '\n' + body.join('\n');
+        }
+        return field.heading + (lines.length ? lines.join(' ') : field.fallback);
+      });
+      const head = config.intro ? config.intro + '\n\n' : '';
+      return '<班の入力>\n' + head + parts.join(config.separator) + '\n</班の入力>';
+    }
+
+    function buildPromptText(name) {
+      const body = document.getElementById(PROMPTS[name].bodyId).innerText.trim();
+      return body + '\n\n' + buildFillBlock(name);
+    }
+
+    function refresh(name) {
+      const preview = document.querySelector('[data-preview="' + name + '"]');
+      if (preview) preview.textContent = buildFillBlock(name);
+    }
+
+    const store = loadStore();
+
+    Object.keys(PROMPTS).forEach((name) => {
+      PROMPTS[name].fields.forEach((field) => {
+        const area = textareaFor(name, field.key);
+        if (!area) return;
+        const saved = store[name] && store[name][field.key];
+        if (saved) area.value = saved;
+        area.addEventListener('input', () => {
+          const current = loadStore();
+          current[name] = current[name] || {};
+          current[name][field.key] = area.value;
+          saveStore(current);
+          refresh(name);
+        });
+      });
+      refresh(name);
+    });
+
+    document.querySelectorAll('[data-clear-fill]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const name = button.dataset.clearFill;
+        PROMPTS[name].fields.forEach((field) => {
+          const area = textareaFor(name, field.key);
+          if (area) area.value = '';
+        });
+        const current = loadStore();
+        delete current[name];
+        saveStore(current);
+        refresh(name);
+      });
+    });
+
     async function copyText(text) {
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(text);
@@ -343,8 +503,10 @@
 
     document.querySelectorAll('[data-copy-target]').forEach((button) => {
       button.addEventListener('click', async () => {
-        const target = document.getElementById(button.dataset.copyTarget);
-        const text = target.innerText.trim();
+        const key = button.dataset.copyTarget;
+        const text = PROMPTS[key]
+          ? buildPromptText(key)
+          : document.getElementById(key).innerText.trim();
         const original = button.textContent;
         try {
           await copyText(text);
