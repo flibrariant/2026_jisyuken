@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#102a56" />
+  <meta name="description" content="QommonsAI自主研 8月6日キックオフの班ワーク用プロンプト集" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="QommonsAI自主研｜班ワーク用プロンプト" />
+  <meta property="og:description" content="班で話した言葉をタネに、QommonsAIで可能性を広げるための2本です。" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="QommonsAI自主研｜班ワーク用プロンプト" />
+  <meta name="twitter:description" content="活動案を広げ、3週間で試せる活動形式へ変形する班ワーク用プロンプト。" />
+  <title>QommonsAI自主研｜班ワーク用プロンプト</title>
+  <style>
+    :root {
+      --navy: #102a56;
+      --blue: #2d62d7;
+      --sky: #eaf3ff;
+      --cream: #fffaf0;
+      --yellow: #ffd85a;
+      --mint: #dff4e9;
+      --ink: #16233a;
+      --muted: #5d6b80;
+      --line: #d8e1ee;
+      --white: #ffffff;
+      --shadow: 0 18px 60px rgba(24, 52, 94, .12);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 0%, rgba(89, 146, 255, .18), transparent 28rem),
+        radial-gradient(circle at 96% 8%, rgba(255, 216, 90, .19), transparent 24rem),
+        #f6f9fd;
+      font-family: "Yu Gothic UI", "Yu Gothic", "Hiragino Sans", Meiryo, sans-serif;
+      line-height: 1.75;
+    }
+    button { font: inherit; }
+    .shell { width: min(1080px, calc(100% - 32px)); margin: 0 auto; }
+    .hero { padding: 64px 0 34px; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 7px 13px; border: 1px solid rgba(45,98,215,.22);
+      border-radius: 999px; color: var(--blue); background: rgba(255,255,255,.75);
+      font-size: 13px; font-weight: 800; letter-spacing: .06em;
+    }
+    h1 { margin: 18px 0 12px; color: var(--navy); font-size: clamp(36px, 6vw, 68px); line-height: 1.1; letter-spacing: -.035em; }
+    .lead { max-width: 720px; margin: 0; color: var(--muted); font-size: clamp(16px, 2.2vw, 20px); }
+    .quick-nav { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin: 30px 0 0; }
+    .quick-link {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      padding: 18px 20px; border: 1px solid var(--line); border-radius: 18px;
+      color: var(--navy); background: rgba(255,255,255,.85); text-decoration: none;
+      font-weight: 800; box-shadow: 0 8px 28px rgba(24,52,94,.07);
+    }
+    .quick-link span { color: var(--blue); font-size: 13px; }
+    .guide {
+      margin: 22px 0 46px; padding: 22px; border-radius: 22px;
+      background: var(--navy); color: white; box-shadow: var(--shadow);
+    }
+    .guide h2 { margin: 0 0 16px; font-size: 21px; }
+    .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .step { padding: 14px; border-radius: 14px; background: rgba(255,255,255,.1); font-size: 14px; }
+    .step b { display: block; margin-bottom: 4px; color: var(--yellow); font-size: 12px; letter-spacing: .08em; }
+    .notice { margin-top: 14px; color: #d9e6ff; font-size: 13px; }
+    .prompt-card {
+      overflow: hidden; margin: 0 0 34px; border: 1px solid var(--line); border-radius: 26px;
+      background: var(--white); box-shadow: var(--shadow); scroll-margin-top: 18px;
+    }
+    .prompt-head { display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: center; padding: 26px 28px 20px; }
+    .prompt-no { display: inline-block; margin-bottom: 8px; color: var(--blue); font-size: 13px; font-weight: 900; letter-spacing: .08em; }
+    .prompt-head h2 { margin: 0; color: var(--navy); font-size: clamp(23px, 3.2vw, 34px); line-height: 1.25; }
+    .prompt-head p { margin: 7px 0 0; color: var(--muted); }
+    .copy-button {
+      min-width: 154px; padding: 14px 18px; border: 0; border-radius: 14px;
+      color: white; background: var(--blue); cursor: pointer; font-weight: 900;
+      box-shadow: 0 9px 22px rgba(45,98,215,.24); transition: transform .15s ease, background .15s ease;
+    }
+    .copy-button:hover { transform: translateY(-1px); background: #214fb8; }
+    .copy-button:focus-visible { outline: 3px solid var(--yellow); outline-offset: 3px; }
+    .copy-button.copied { background: #16865d; }
+    .input-guide { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 0 28px 22px; }
+    .input-chip { padding: 12px 13px; border-radius: 13px; font-size: 13px; font-weight: 700; }
+    .blue { background: #e6f0ff; color: #174eae; }
+    .yellow { background: #fff4bf; color: #765b00; }
+    .red { background: #ffe7e4; color: #9a3327; }
+    .gray { background: #edf1f6; color: #465369; }
+    .prompt-wrap { position: relative; border-top: 1px solid var(--line); background: #f8fafc; }
+    pre {
+      max-height: 570px; overflow: auto; margin: 0; padding: 26px 28px 32px;
+      color: #25344c; font-family: "Yu Gothic UI", "Yu Gothic", Meiryo, sans-serif;
+      font-size: 14px; line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere;
+    }
+    .card-foot { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 16px 28px 22px; border-top: 1px solid var(--line); }
+    .card-foot small { color: var(--muted); }
+    .mini-button { padding: 10px 14px; min-width: 138px; box-shadow: none; }
+    .trouble { margin: 48px 0; }
+    .section-title { margin: 0 0 8px; color: var(--navy); font-size: clamp(26px, 4vw, 40px); }
+    .section-lead { margin: 0 0 20px; color: var(--muted); }
+    .trouble-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+    .trouble-card { padding: 20px; border: 1px solid var(--line); border-radius: 18px; background: white; }
+    .trouble-card h3 { margin: 0 0 7px; color: var(--navy); font-size: 17px; }
+    .trouble-card p { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+    .trouble-card button { padding: 9px 12px; border: 1px solid #b8c9e5; border-radius: 10px; color: var(--blue); background: #f5f9ff; cursor: pointer; font-weight: 800; }
+    .privacy { margin: 36px 0 56px; padding: 22px; border-left: 5px solid var(--yellow); border-radius: 12px; background: var(--cream); }
+    .privacy strong { color: var(--navy); }
+    footer { padding: 26px 0 44px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+    .toast {
+      position: fixed; left: 50%; bottom: 24px; z-index: 20; transform: translate(-50%, 20px);
+      padding: 12px 18px; border-radius: 999px; color: white; background: #102a56;
+      box-shadow: var(--shadow); opacity: 0; pointer-events: none; transition: .2s ease;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+    @media (max-width: 760px) {
+      .hero { padding-top: 40px; }
+      .quick-nav, .steps, .trouble-grid { grid-template-columns: 1fr; }
+      .prompt-head { grid-template-columns: 1fr; padding: 22px 20px 16px; }
+      .copy-button { width: 100%; }
+      .input-guide { grid-template-columns: repeat(2, 1fr); padding: 0 20px 18px; }
+      pre { padding: 22px 20px 26px; max-height: 500px; font-size: 13px; }
+      .card-foot { align-items: stretch; flex-direction: column; padding: 14px 20px 20px; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div class="eyebrow">QommonsAI 自主研 2026｜8月6日キックオフ</div>
+      <h1>班ワーク用<br />プロンプト</h1>
+      <p class="lead">班で話した言葉をタネに、QommonsAIで可能性を広げるための2本です。全文をコピーしてQommonsAIへ貼り付け、末尾の入力欄だけを書き換えてください。</p>
+      <nav class="quick-nav" aria-label="プロンプトへ移動">
+        <a class="quick-link" href="#prompt1">活動アイデアを6案出す <span>実践01 ↓</span></a>
+        <a class="quick-link" href="#prompt2">3種類の活動形式へ変形する <span>実践02 ↓</span></a>
+      </nav>
+    </header>
+
+    <section class="guide" aria-labelledby="howto">
+      <h2 id="howto">使い方は4ステップ</h2>
+      <div class="steps">
+        <div class="step"><b>STEP 1</b>「全文をコピー」を押す</div>
+        <div class="step"><b>STEP 2</b>QommonsAIへ貼り付ける</div>
+        <div class="step"><b>STEP 3</b>Ctrl＋Endで末尾へ移動</div>
+        <div class="step"><b>STEP 4</b>入力欄を班の言葉へ変えて送信</div>
+      </div>
+      <div class="notice">全班で同じモデルを使用します。PCやアカウントが足りない班は、ChatGPTへ同じプロンプトを貼り付けて構いません。</div>
+    </section>
+
+    <section class="prompt-card" id="prompt1">
+      <div class="prompt-head">
+        <div>
+          <span class="prompt-no">実践 01｜18:33–18:41</span>
+          <h2>付箋のタネから、活動アイデアを6案出す</h2>
+          <p>全文を貼り付け、末尾の青・黄・赤・A3の4か所だけを班の言葉へ置き換えます。</p>
+        </div>
+        <button class="copy-button" type="button" data-copy-target="prompt1text">全文をコピー</button>
+      </div>
+      <div class="input-guide" aria-label="入力する内容">
+        <div class="input-chip blue">青｜想像していた自主研</div>
+        <div class="input-chip yellow">黄｜持ち帰れたらうれしいもの</div>
+        <div class="input-chip red">赤｜置いていけそうなもの</div>
+        <div class="input-chip gray">A3｜条件・避けたい負担</div>
+      </div>
+      <div class="prompt-wrap">
+        <pre id="prompt1text">&lt;役割&gt;
+あなたは、自治体職員によるQommonsAI自主研の発想パートナーです。
+参加者の代わりに結論を決めるのではなく、参加者が選び直せる、具体的で異なる選択肢を広げてください。
+&lt;/役割&gt;
+
+&lt;背景&gt;
+- 日付：2026年8月6日
+- 次回：2026年8月27日
+- 目的：8月27日までに小さく試せる、自主研の参加方法・活動形式を見つける
+- 今回決めないこと：10か月の個人目標、研究プロジェクト、固定メンバー、恒久的な運営体制
+- 参加条件：忙しい人、聞くだけから始めたい人、発表に抵抗がある人も関われること
+&lt;/背景&gt;
+
+&lt;作業&gt;
+末尾の&lt;班の入力&gt;を材料に、参加方法・活動形式のアイデアを正確に6案つくってください。
+- A1・A2：一人5分程度、またはDiscordのリアクションだけでも参加できる案
+- B1・B2：2～3人で相談・試作・検証できる案
+- C1・C2：タネ同士を意外な形で組み合わせた、試す価値のある案
+&lt;/作業&gt;
+
+&lt;品質条件&gt;
+- 6案は、名前だけでなく活動内容が異なるものにする
+- 完成品や発表を必須にせず、相談した・少し検索した・失敗した・質問した・反応した、も持ち寄れるようにする
+- 8月27日までに始められる大きさにする
+- 固定の担当者を置く前提にしない
+- 入力にない発想を加えた案は「AIからの追加発想」と明記する
+- 個人名、具体的案件、機密情報を補わない
+&lt;/品質条件&gt;
+
+&lt;出力形式&gt;
+前置きなしで、次の列を持つMarkdown表を1つだけ出してください。
+「ID｜案の名前｜具体的に何をするか｜最も小さな参加方法｜8月27日に持ち寄れるもの｜元にしたタネ」
+
+- 1行につき1案
+- 各セルは60字以内
+- 「元にしたタネ」は、青・黄・赤・条件のどれに基づくかを示す
+&lt;/出力形式&gt;
+
+&lt;班の入力&gt;
+【青｜想像していた自主研】ここに入力
+【黄｜持ち帰れたらうれしいもの】ここに入力
+【赤｜置いていけそうな小さな出来事・疑問・途中経過】ここに入力
+【A3｜共通・違い・参加しやすい条件・避けたい負担】ここに入力
+&lt;/班の入力&gt;</pre>
+      </div>
+      <div class="card-foot">
+        <small>出力された6案から「試したい1案」と「意外だが気になる1案」を選びます。</small>
+        <button class="copy-button mini-button" type="button" data-copy-target="prompt1text">全文をコピー</button>
+      </div>
+    </section>
+
+    <section class="prompt-card" id="prompt2">
+      <div class="prompt-head">
+        <div>
+          <span class="prompt-no">実践 02｜19:05–19:15</span>
+          <h2>選んだ案を、3種類の活動形式へ変形する</h2>
+          <p>全文を貼り付け、末尾の案名・残したい核・避けたい負担の3か所だけを置き換えます。</p>
+        </div>
+        <button class="copy-button" type="button" data-copy-target="prompt2text">全文をコピー</button>
+      </div>
+      <div class="input-guide" style="grid-template-columns: repeat(3, 1fr)" aria-label="入力する内容">
+        <div class="input-chip blue">案の名前</div>
+        <div class="input-chip yellow">残したい核</div>
+        <div class="input-chip red">変えたい・避けたい負担</div>
+      </div>
+      <div class="prompt-wrap">
+        <pre id="prompt2text">&lt;役割&gt;
+あなたは、自治体職員によるQommonsAI自主研の活動形式デザインパートナーです。
+選ばれた活動アイデアの核を保ちながら、参加負担と関わり方が異なる3案へ具体化してください。
+&lt;/役割&gt;
+
+&lt;背景&gt;
+- 今日：2026年8月6日
+- 次回：2026年8月27日のシェア・トークラウンジ
+- その次：9月の「つくる・はなすラウンジ」
+- 今日は研究プロジェクトや固定メンバーを決めず、8月27日までに試す参加方法・活動形式を考える
+- Discordには「想像していた自主研」「持ち帰りたいもの」「持ち寄れそうな一歩」の3投稿がある
+&lt;/背景&gt;
+
+&lt;作業&gt;
+末尾の&lt;班の入力&gt;を材料に、次の3種類を互いに明確に違う活動形式案として1案ずつつくってください。
+- M｜最小負担版：一人5分、またはリアクションだけでも関われる
+- C｜協働版：2～3人で相談・試作・検証できる
+- S｜9月接続版：8月27日に材料を共有し、9月に続きを試せる
+&lt;/作業&gt;
+
+&lt;品質条件&gt;
+- 今日から8月27日までに実行できる
+- 完成や発表を義務にせず、相談した・少し検索した・失敗した・質問した・反応した、も持ち寄りとする
+- 固定担当者や全員参加を前提にしない
+- Discordでの行動は、一文投稿・質問・リアクションなど小さくする
+- 何をすれば参加したことになるかを明確にする
+- 入力にない個人名、具体的案件、機密情報を補わない
+&lt;/品質条件&gt;
+
+&lt;出力形式&gt;
+前置きなしで、次の列を持つMarkdown表を1つ出してください。
+「型｜活動形式名｜8月7日～26日にすること｜最も小さな参加方法｜8月27日に持ち寄るもの｜参加しやすくする工夫」
+
+- M・C・Sの3行
+- 各セルは70字以内
+
+表の後に「班で選ぶときの比較軸」を3点だけ箇条書きしてください。
+どの案を選ぶべきかは推薦せず、選択は班に委ねてください。
+&lt;/出力形式&gt;
+
+&lt;班の入力&gt;
+【案の名前】ここに入力
+【残したい核】ここに入力
+【変えたいところ・避けたい負担】ここに入力
+&lt;/班の入力&gt;</pre>
+      </div>
+      <div class="card-foot">
+        <small>3案から一つを選び、必要なら混ぜたり、元の案へ戻ったりして構いません。</small>
+        <button class="copy-button mini-button" type="button" data-copy-target="prompt2text">全文をコピー</button>
+      </div>
+    </section>
+
+    <section class="trouble" aria-labelledby="trouble-title">
+      <h2 class="section-title" id="trouble-title">うまくいかないとき</h2>
+      <p class="section-lead">短い追加入力をコピーして、同じチャットへ送ってください。</p>
+      <div class="trouble-grid">
+        <article class="trouble-card"><h3>似た案ばかり</h3><p id="fix1">活動内容が重複しています。対象者、参加時間、関わり方が異なる6案へ作り直してください。</p><button type="button" data-copy-target="fix1">この一文をコピー</button></article>
+        <article class="trouble-card"><h3>抽象的すぎる</h3><p id="fix2">各案を、今日5分で始められる最初の操作まで具体化してください。</p><button type="button" data-copy-target="fix2">この一文をコピー</button></article>
+        <article class="trouble-card"><h3>負担が大きい</h3><p id="fix3">準備時間を半分にし、発表と固定担当者を不要にして作り直してください。</p><button type="button" data-copy-target="fix3">この一文をコピー</button></article>
+        <article class="trouble-card"><h3>付箋から離れている</h3><p id="fix4">各案の「元にしたタネ」とのつながりを確認し、根拠が薄い案を差し替えてください。</p><button type="button" data-copy-target="fix4">この一文をコピー</button></article>
+      </div>
+    </section>
+
+    <aside class="privacy">
+      <strong>入力前に確認：</strong> 個人名、個人情報、機密情報、具体的な案件情報は入力しません。PC担当が一人で要約せず、班員に読み上げてから送信します。
+    </aside>
+  </main>
+  <footer><div class="shell">QommonsAI自主研 2026｜人がタネを出す。AIで広げる。人が選んで試す。</div></footer>
+  <div class="toast" id="toast" role="status" aria-live="polite">コピーしました</div>
+  <script>
+    const toast = document.getElementById('toast');
+    let toastTimer;
+
+    async function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+      const area = document.createElement('textarea');
+      area.value = text;
+      area.style.position = 'fixed';
+      area.style.opacity = '0';
+      document.body.appendChild(area);
+      area.focus();
+      area.select();
+      document.execCommand('copy');
+      area.remove();
+    }
+
+    document.querySelectorAll('[data-copy-target]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const target = document.getElementById(button.dataset.copyTarget);
+        const text = target.innerText.trim();
+        const original = button.textContent;
+        try {
+          await copyText(text);
+          button.textContent = 'コピーしました ✓';
+          button.classList.add('copied');
+          toast.textContent = 'クリップボードにコピーしました';
+          toast.classList.add('show');
+          clearTimeout(toastTimer);
+          toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
+          setTimeout(() => {
+            button.textContent = original;
+            button.classList.remove('copied');
+          }, 2200);
+        } catch (error) {
+          toast.textContent = 'コピーできませんでした。本文を長押しして選択してください';
+          toast.classList.add('show');
+          clearTimeout(toastTimer);
+          toastTimer = setTimeout(() => toast.classList.remove('show'), 2600);
+        }
+      });
+    });
+  </script>
+</body>
+</html>
+
