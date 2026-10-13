@@ -59,7 +59,7 @@
     .card h2 { margin: 0 0 6px; color: var(--navy); font-size: 21px; }
     .card .sub { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
 
-    .gauge { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    .gauge { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
     .stat { padding: 14px; border-radius: 14px; background: var(--sky); }
     .stat small { display: block; color: var(--muted); font-size: 12px; letter-spacing: .06em; }
     .stat strong { display: block; color: var(--navy); font-size: 26px; line-height: 1.2; }
@@ -137,7 +137,8 @@
     .toast.error { background: var(--red); }
     @media (max-width: 720px) {
       .hero { padding-top: 32px; }
-      .rules, .gauge, .form { grid-template-columns: 1fr; }
+      .rules, .form { grid-template-columns: 1fr; }
+      .gauge { grid-template-columns: 1fr 1fr; }
       .me { grid-template-columns: 1fr; }
       .stat strong { font-size: 22px; }
     }
@@ -149,11 +150,11 @@
     <div class="shell">
       <span class="eyebrow">QommonsAI自主研 2026｜図書予算</span>
       <h1>1万円クラファン</h1>
-      <p class="lead">読みたい本を登録して、帯文で口説く。一人3,000コインを好きな本に出資して、本物の予算1万円の枠を奪い合います。</p>
+      <p class="lead">参加は自由。やりたい人だけ名前を入れて、一人3,000コインを好きな本に出資。本物の予算1万円の枠を奪い合います。候補を足して帯文で口説くのも歓迎。</p>
       <div class="rules">
-        <div class="rule"><b>01 登録</b>読みたい本と、100字の帯文を登録する。</div>
-        <div class="rule"><b>02 出資</b>3,000コインを分けて出資。定価に届いた本が「確定ライン到達」。</div>
-        <div class="rule"><b>03 ぴったり</b>締め切り後、1万円に一番近い組み合わせを自動提案。</div>
+        <div class="rule"><b>01 参加</b>名前を入れたら参加。候補を足すなら100字の帯文つきで。</div>
+        <div class="rule"><b>02 出資</b>3,000コインを分けて出資。定価に届いた本は「確定ライン到達」。</div>
+        <div class="rule"><b>03 ぴったり</b>締め切り後、出資の多い本から1万円に収まる組み合わせを提案。定価到達は必須じゃない。</div>
       </div>
     </div>
   </header>
@@ -163,10 +164,11 @@
 
     <section class="card">
       <h2>予算メーター</h2>
-      <p class="sub">本物の予算は <b id="budgetLabel">10,000</b> 円。確定ライン到達の本の定価合計と、全員の出資総額です。</p>
+      <p class="sub">本物の予算は <b id="budgetLabel">10,000</b> 円。参加者が少なくても、出資のある本から組み合わせを決めます。</p>
       <div class="gauge">
         <div class="stat done"><small>確定ライン到達の本</small><strong id="fundedTotal">0 円</strong></div>
         <div class="stat"><small>出資総額（コイン）</small><strong id="pledgeTotal">0 円</strong></div>
+        <div class="stat"><small>参加者</small><strong id="memberCount">0 人</strong></div>
         <div class="stat"><small>候補の本</small><strong id="bookCount">0 冊</strong></div>
       </div>
       <p class="hint" id="deadline"></p>
@@ -174,7 +176,7 @@
 
     <section class="card">
       <h2>あなたの財布</h2>
-      <p class="sub">名前はこの端末に覚えておきます。班で呼ばれている名前で大丈夫です。</p>
+      <p class="sub">参加したい人だけ名前を入れてください。この端末に覚えておきます。班で呼ばれている名前で大丈夫です。</p>
       <div class="me">
         <div>
           <label for="name">名前</label>
@@ -188,7 +190,7 @@
       <div class="toolbar">
         <div>
           <h2>候補の本</h2>
-          <p class="sub">出資の多い順。帯文を読んで、張る本を決めてください。</p>
+          <p class="sub">出資の多い順。最初の9冊は幹事が並べたAI関連の候補です。帯文を読んで、張る本を決めてください。</p>
         </div>
         <button class="btn ghost small" id="reload" type="button">更新する</button>
       </div>
@@ -246,6 +248,19 @@
     const NAME_KEY = 'jisyuken-books-name-v1';
     const DEFAULT_SETTINGS = { budget: 10000, coins: 3000, deadline: '', maxObi: 100 };
 
+    // 最初から並べておく候補（お試しモード用。共有モードでは Code.gs 側の同じリストがシートに入る）
+    const SEED_BOOKS = [
+          {"id": "seed01", "title": "どんな仕事も効率アップ！ 公務員の生成AI超活用術", "author": "学陽書房", "price": 2530, "obi": "議会答弁、住民アンケート、広報チラシ。現役自治体職員が「うちの仕事」で使う手順を書いた一冊。QommonsAIに一番近い。", "proposer": "初期候補", "url": "https://www.gakuyo.co.jp/book/b10159129.html"},
+          {"id": "seed02", "title": "図書館員のための生成AI入門 しくみを知り、活かすために", "author": "中島玲子（JLA図書館実践シリーズ）", "price": 2420, "obi": "図書館の現場向けに、生成AIのしくみと使いどころを107ページに凝縮。薄いので回覧しやすい。", "proposer": "初期候補", "url": "https://www.jla.or.jp/publications/978-4-8204-2602-8/"},
+          {"id": "seed03", "title": "大規模言語モデルは新たな知能か ChatGPTが変えた世界", "author": "岡野原大輔（岩波科学ライブラリー）", "price": 1540, "obi": "「なぜ答えられるのか」を第一線の研究者が平易に。仕組みを一度ちゃんと知っておきたい人へ。", "proposer": "初期候補", "url": "https://www.kinokuniya.co.jp/f/dsg-01-9784000297196"},
+          {"id": "seed04", "title": "生成AIで世界はこう変わる", "author": "今井翔太（SB新書）", "price": 1100, "obi": "仕事、教育、創作はどう変わるか。新書1冊で全体像をつかむ最短ルート。", "proposer": "初期候補", "url": "https://www.kinokuniya.co.jp/f/dsg-01-9784815622978"},
+          {"id": "seed05", "title": "ChatGPTの頭の中", "author": "スティーヴン・ウルフラム（ハヤカワ新書）", "price": 1012, "obi": "Mathematicaの作者が「次の単語を当てるだけ」の正体を168ページで解剖。薄くて深い。", "proposer": "初期候補", "url": "https://www.kinokuniya.co.jp/f/dsg-01-9784153400092"},
+          {"id": "seed06", "title": "生成AIの核心 「新しい知」といかに向き合うか", "author": "西田宗千佳（NHK出版新書）", "price": 1023, "obi": "技術の話より「どう付き合うか」。使えない現場にいる人こそ、距離感を決めるために。", "proposer": "初期候補", "url": "https://www.kinokuniya.co.jp/f/dsg-01-9784140887059"},
+          {"id": "seed07", "title": "画像生成AIと著作権について知っておきたい50の質問", "author": "ニャタBE・花井裕也・谷直樹（オーム社）", "price": 1980, "obi": "イラストレーター、エンジニア、弁護士の3人がQ&Aで議論。著作権の相談を受ける側の予習に。", "proposer": "初期候補", "url": "https://www.kinokuniya.co.jp/f/dsg-01-9784274231179"},
+          {"id": "seed08", "title": "生成AIで爆速！ ChatGPT仕事術", "author": "鈴木眞里子（日経文庫ビジュアル）", "price": 1100, "obi": "文書作成、要約、企画立案のプロンプト例をビジュアルで。明日から真似できる即効型。", "proposer": "初期候補", "url": "https://bookplus.nikkei.com/atcl/catalog/25/09/01/02171/"},
+          {"id": "seed09", "title": "AI白書 2025 生成AIエディション", "author": "東京大学 松尾・岩澤研究室 監修（角川アスキー総合研究所）", "price": 4400, "obi": "予算の4割を食う重量級。でも国内の動向と事例が1冊に揃う。班の共有本棚に置く1冊として。", "proposer": "初期候補", "url": "https://www.kinokuniya.co.jp/f/dsg-01-9784049112382"}
+    ];
+
     const $ = (id) => document.getElementById(id);
     const yen = (n) => Math.round(n).toLocaleString('ja-JP') + ' 円';
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -279,18 +294,7 @@
         const saved = JSON.parse(localStorage.getItem(DEMO_KEY) || 'null');
         if (saved && saved.books) return saved;
       } catch (e) { /* 壊れていたら作り直す */ }
-      return {
-        settings: DEFAULT_SETTINGS,
-        books: [
-          { id: 'demo1', title: '（お試し）図書館のAI活用ガイド', author: '架空 太郎', price: 2200, obi: 'AIを使えない現場の人こそ読むべき。会議の空気を変える一冊。', proposer: 'お試し', url: '' },
-          { id: 'demo2', title: '（お試し）自治体のデジタル小さな一歩', author: '仮名 花子', price: 1760, obi: '大きな改革はいらない。月曜から試せる小技が42個。', proposer: 'お試し', url: '' },
-          { id: 'demo3', title: '（お試し）問いの立て方', author: '例示 次郎', price: 3080, obi: '答えはAIが出す時代。問いを作れる人になる。', proposer: 'お試し', url: '' }
-        ],
-        pledges: [
-          { bookId: 'demo1', name: 'お試し', amount: 1500 },
-          { bookId: 'demo3', name: 'お試し', amount: 1000 }
-        ]
-      };
+      return { settings: DEFAULT_SETTINGS, books: SEED_BOOKS.map((b) => Object.assign({}, b)), pledges: [] };
     }
     function saveDemo() {
       try { localStorage.setItem(DEMO_KEY, JSON.stringify(state)); } catch (e) { /* 保存不可 */ }
@@ -422,6 +426,7 @@
       $('fundedTotal').textContent = yen(books.filter((b) => b.funded).reduce((a, b) => a + b.price, 0));
       $('pledgeTotal').textContent = yen(state.pledges.reduce((a, p) => a + p.amount, 0));
       $('bookCount').textContent = books.length + ' 冊';
+      $('memberCount').textContent = new Set(state.pledges.map((p) => p.name)).size + ' 人';
       $('myCoins').textContent = yen(remaining);
       $('deadline').textContent = s.deadline
         ? (closed ? '締め切りました（' + s.deadline + '）。出資は受け付けていません。' : '締め切り：' + s.deadline + ' 23:59')

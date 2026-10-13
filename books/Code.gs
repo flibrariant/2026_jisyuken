@@ -12,6 +12,19 @@ const SETTINGS = {
   maxObi: 100      // 帯文の最大文字数
 };
 
+// books シートを初めて作るときに入れる初期候補（index.html の SEED_BOOKS と同じ内容）
+const SEED_BOOKS = [
+  ["seed01", "どんな仕事も効率アップ！ 公務員の生成AI超活用術", "学陽書房", 2530, "議会答弁、住民アンケート、広報チラシ。現役自治体職員が「うちの仕事」で使う手順を書いた一冊。QommonsAIに一番近い。", "初期候補", "https://www.gakuyo.co.jp/book/b10159129.html"],
+  ["seed02", "図書館員のための生成AI入門 しくみを知り、活かすために", "中島玲子（JLA図書館実践シリーズ）", 2420, "図書館の現場向けに、生成AIのしくみと使いどころを107ページに凝縮。薄いので回覧しやすい。", "初期候補", "https://www.jla.or.jp/publications/978-4-8204-2602-8/"],
+  ["seed03", "大規模言語モデルは新たな知能か ChatGPTが変えた世界", "岡野原大輔（岩波科学ライブラリー）", 1540, "「なぜ答えられるのか」を第一線の研究者が平易に。仕組みを一度ちゃんと知っておきたい人へ。", "初期候補", "https://www.kinokuniya.co.jp/f/dsg-01-9784000297196"],
+  ["seed04", "生成AIで世界はこう変わる", "今井翔太（SB新書）", 1100, "仕事、教育、創作はどう変わるか。新書1冊で全体像をつかむ最短ルート。", "初期候補", "https://www.kinokuniya.co.jp/f/dsg-01-9784815622978"],
+  ["seed05", "ChatGPTの頭の中", "スティーヴン・ウルフラム（ハヤカワ新書）", 1012, "Mathematicaの作者が「次の単語を当てるだけ」の正体を168ページで解剖。薄くて深い。", "初期候補", "https://www.kinokuniya.co.jp/f/dsg-01-9784153400092"],
+  ["seed06", "生成AIの核心 「新しい知」といかに向き合うか", "西田宗千佳（NHK出版新書）", 1023, "技術の話より「どう付き合うか」。使えない現場にいる人こそ、距離感を決めるために。", "初期候補", "https://www.kinokuniya.co.jp/f/dsg-01-9784140887059"],
+  ["seed07", "画像生成AIと著作権について知っておきたい50の質問", "ニャタBE・花井裕也・谷直樹（オーム社）", 1980, "イラストレーター、エンジニア、弁護士の3人がQ&Aで議論。著作権の相談を受ける側の予習に。", "初期候補", "https://www.kinokuniya.co.jp/f/dsg-01-9784274231179"],
+  ["seed08", "生成AIで爆速！ ChatGPT仕事術", "鈴木眞里子（日経文庫ビジュアル）", 1100, "文書作成、要約、企画立案のプロンプト例をビジュアルで。明日から真似できる即効型。", "初期候補", "https://bookplus.nikkei.com/atcl/catalog/25/09/01/02171/"],
+  ["seed09", "AI白書 2025 生成AIエディション", "東京大学 松尾・岩澤研究室 監修（角川アスキー総合研究所）", 4400, "予算の4割を食う重量級。でも国内の動向と事例が1冊に揃う。班の共有本棚に置く1冊として。", "初期候補", "https://www.kinokuniya.co.jp/f/dsg-01-9784049112382"]
+];
+
 const BOOK_HEADERS = ['id', 'title', 'author', 'price', 'obi', 'proposer', 'url', 'createdAt'];
 const PLEDGE_HEADERS = ['bookId', 'name', 'amount', 'updatedAt'];
 
@@ -109,6 +122,10 @@ function sheet(name, headers) {
   if (!sh) {
     sh = ss.insertSheet(name);
     sh.appendRow(headers);
+    if (name === 'books') {
+      const now = new Date().toISOString();
+      SEED_BOOKS.forEach(function (b) { sh.appendRow(b.concat([now])); });
+    }
   }
   return sh;
 }
