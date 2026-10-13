@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#102a56" />
+  <meta name="description" content="QommonsAI自主研の図書予算1万円を、仮想コインの出資で決めるクラファン風アプリ" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="QommonsAI自主研｜1万円クラファン" />
+  <meta property="og:description" content="一人3,000コイン。読みたい本に出資して、本物の1万円枠を奪い合う。" />
+  <title>QommonsAI自主研｜1万円クラファン</title>
+  <style>
+    :root {
+      --navy: #102a56;
+      --blue: #2d62d7;
+      --sky: #eaf3ff;
+      --cream: #fffaf0;
+      --yellow: #ffd85a;
+      --mint: #dff4e9;
+      --green: #1f8a5a;
+      --red: #c8402f;
+      --ink: #16233a;
+      --muted: #5d6b80;
+      --line: #d8e1ee;
+      --white: #ffffff;
+      --shadow: 0 18px 60px rgba(24, 52, 94, .12);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 0%, rgba(89, 146, 255, .18), transparent 28rem),
+        radial-gradient(circle at 96% 8%, rgba(255, 216, 90, .19), transparent 24rem),
+        #f6f9fd;
+      font-family: "Yu Gothic UI", "Yu Gothic", "Hiragino Sans", Meiryo, sans-serif;
+      line-height: 1.7;
+    }
+    button, input, textarea { font: inherit; }
+    .shell { width: min(960px, calc(100% - 32px)); margin: 0 auto; }
+    .hero { padding: 48px 0 20px; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 7px 13px; border: 1px solid rgba(45,98,215,.22);
+      border-radius: 999px; color: var(--blue); background: rgba(255,255,255,.75);
+      font-size: 13px; font-weight: 800; letter-spacing: .06em;
+    }
+    h1 { margin: 16px 0 10px; color: var(--navy); font-size: clamp(32px, 6vw, 56px); line-height: 1.1; letter-spacing: -.03em; }
+    .lead { max-width: 640px; margin: 0; color: var(--muted); font-size: clamp(15px, 2.2vw, 18px); }
+    .rules { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 22px 0 0; }
+    .rule { padding: 14px; border-radius: 14px; background: var(--navy); color: white; font-size: 14px; }
+    .rule b { display: block; margin-bottom: 4px; color: var(--yellow); font-size: 12px; letter-spacing: .08em; }
+
+    .card {
+      margin: 0 0 22px; padding: 22px; border: 1px solid var(--line); border-radius: 22px;
+      background: var(--white); box-shadow: var(--shadow);
+    }
+    .card h2 { margin: 0 0 6px; color: var(--navy); font-size: 21px; }
+    .card .sub { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+
+    .gauge { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    .stat { padding: 14px; border-radius: 14px; background: var(--sky); }
+    .stat small { display: block; color: var(--muted); font-size: 12px; letter-spacing: .06em; }
+    .stat strong { display: block; color: var(--navy); font-size: 26px; line-height: 1.2; }
+    .stat.mine { background: var(--cream); }
+    .stat.done { background: var(--mint); }
+
+    .me { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end; }
+    label { display: block; font-size: 13px; font-weight: 800; color: var(--navy); margin-bottom: 4px; }
+    input[type=text], input[type=number], input[type=url], textarea {
+      width: 100%; padding: 11px 13px; border: 1px solid var(--line); border-radius: 12px; background: #fff;
+    }
+    textarea { min-height: 84px; resize: vertical; }
+    .hint { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+    .btn {
+      padding: 11px 16px; border: 0; border-radius: 12px; color: white; background: var(--blue);
+      cursor: pointer; font-weight: 900; box-shadow: 0 8px 20px rgba(45,98,215,.22);
+      transition: transform .15s ease, background .15s ease;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:disabled { opacity: .45; cursor: not-allowed; transform: none; box-shadow: none; }
+    .btn.ghost { color: var(--navy); background: var(--sky); box-shadow: none; }
+    .btn.danger { color: var(--red); background: #fdecea; box-shadow: none; }
+    .btn.small { padding: 8px 12px; font-size: 13px; border-radius: 10px; }
+
+    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .toolbar .sub { margin: 0; }
+
+    .books { display: grid; gap: 14px; }
+    .book {
+      position: relative; padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: #fff;
+    }
+    .book.funded { border-color: rgba(31,138,90,.5); background: linear-gradient(180deg, #f3fbf6, #fff 60%); }
+    .book .rank { position: absolute; top: -10px; left: 14px; padding: 2px 10px; border-radius: 999px; background: var(--navy); color: var(--yellow); font-size: 12px; font-weight: 900; }
+    .book .badge { position: absolute; top: -10px; right: 14px; padding: 2px 10px; border-radius: 999px; background: var(--green); color: white; font-size: 12px; font-weight: 900; }
+    .book h3 { margin: 6px 0 2px; color: var(--navy); font-size: 18px; line-height: 1.3; }
+    .book .meta { margin: 0; color: var(--muted); font-size: 13px; }
+    .obi {
+      margin: 10px 0; padding: 10px 12px; border-left: 4px solid var(--yellow); background: var(--cream);
+      border-radius: 0 10px 10px 0; font-size: 15px;
+    }
+    .obi small { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; }
+    .bar { height: 10px; border-radius: 999px; background: var(--sky); overflow: hidden; }
+    .bar i { display: block; height: 100%; background: var(--blue); transition: width .4s ease; }
+    .book.funded .bar i { background: var(--green); }
+    .amounts { display: flex; justify-content: space-between; margin: 6px 0 0; font-size: 13px; color: var(--muted); }
+    .amounts b { color: var(--navy); }
+    .backers { margin: 8px 0 0; font-size: 12px; color: var(--muted); }
+    .backers span { display: inline-block; margin: 2px 6px 0 0; padding: 1px 8px; border-radius: 999px; background: var(--sky); color: var(--navy); }
+    .backers span.me { background: var(--yellow); }
+    .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+    .empty { padding: 30px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 16px; }
+
+    .combos { display: grid; gap: 10px; }
+    .combo { padding: 14px; border-radius: 14px; background: var(--sky); }
+    .combo b { color: var(--navy); }
+    .combo ul { margin: 6px 0 0; padding-left: 18px; font-size: 14px; }
+    .combo .tail { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
+
+    .form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form .wide { grid-column: 1 / -1; }
+    .counter { text-align: right; font-size: 12px; color: var(--muted); }
+    .counter.over { color: var(--red); font-weight: 800; }
+
+    .mode { margin: 0 0 18px; padding: 10px 14px; border-radius: 12px; background: var(--cream); border: 1px solid #f1dd9a; font-size: 13px; }
+    .mode.live { background: var(--mint); border-color: #b9e3cc; }
+
+    footer { padding: 30px 0 40px; color: var(--muted); font-size: 13px; text-align: center; }
+    footer a { color: var(--blue); }
+    .toast {
+      position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px);
+      padding: 12px 18px; border-radius: 12px; background: var(--navy); color: white; font-weight: 800;
+      opacity: 0; transition: opacity .2s ease, transform .2s ease; pointer-events: none; max-width: calc(100% - 32px);
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+    .toast.error { background: var(--red); }
+    @media (max-width: 720px) {
+      .hero { padding-top: 32px; }
+      .rules, .gauge, .form { grid-template-columns: 1fr; }
+      .me { grid-template-columns: 1fr; }
+      .stat strong { font-size: 22px; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="shell">
+      <span class="eyebrow">QommonsAI自主研 2026｜図書予算</span>
+      <h1>1万円クラファン</h1>
+      <p class="lead">読みたい本を登録して、帯文で口説く。一人3,000コインを好きな本に出資して、本物の予算1万円の枠を奪い合います。</p>
+      <div class="rules">
+        <div class="rule"><b>01 登録</b>読みたい本と、100字の帯文を登録する。</div>
+        <div class="rule"><b>02 出資</b>3,000コインを分けて出資。定価に届いた本が「確定ライン到達」。</div>
+        <div class="rule"><b>03 ぴったり</b>締め切り後、1万円に一番近い組み合わせを自動提案。</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="shell">
+    <div class="mode" id="mode">読み込み中…</div>
+
+    <section class="card">
+      <h2>予算メーター</h2>
+      <p class="sub">本物の予算は <b id="budgetLabel">10,000</b> 円。確定ライン到達の本の定価合計と、全員の出資総額です。</p>
+      <div class="gauge">
+        <div class="stat done"><small>確定ライン到達の本</small><strong id="fundedTotal">0 円</strong></div>
+        <div class="stat"><small>出資総額（コイン）</small><strong id="pledgeTotal">0 円</strong></div>
+        <div class="stat"><small>候補の本</small><strong id="bookCount">0 冊</strong></div>
+      </div>
+      <p class="hint" id="deadline"></p>
+    </section>
+
+    <section class="card">
+      <h2>あなたの財布</h2>
+      <p class="sub">名前はこの端末に覚えておきます。班で呼ばれている名前で大丈夫です。</p>
+      <div class="me">
+        <div>
+          <label for="name">名前</label>
+          <input type="text" id="name" maxlength="30" placeholder="例：森野" autocomplete="nickname" />
+        </div>
+        <div class="stat mine"><small>残りコイン</small><strong id="myCoins">3,000 円</strong></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="toolbar">
+        <div>
+          <h2>候補の本</h2>
+          <p class="sub">出資の多い順。帯文を読んで、張る本を決めてください。</p>
+        </div>
+        <button class="btn ghost small" id="reload" type="button">更新する</button>
+      </div>
+      <div class="books" id="books"></div>
+    </section>
+
+    <section class="card">
+      <h2>1万円ぴったり提案</h2>
+      <p class="sub">出資額の合計が最大になり、定価の合計が1万円に収まる組み合わせです。最終決定は締め切り後に幹事が行います。</p>
+      <div class="combos" id="combos"></div>
+    </section>
+
+    <section class="card" id="register">
+      <h2>本を登録する</h2>
+      <p class="sub">帯文は100字まで。ここが勝負です。QommonsAIに帯文の案を出させるのもあり。</p>
+      <form class="form" id="form">
+        <div class="wide">
+          <label for="title">タイトル</label>
+          <input type="text" id="title" maxlength="80" required />
+        </div>
+        <div>
+          <label for="author">著者</label>
+          <input type="text" id="author" maxlength="60" />
+        </div>
+        <div>
+          <label for="price">定価（円、税込）</label>
+          <input type="number" id="price" min="1" max="30000" step="1" inputmode="numeric" required />
+        </div>
+        <div class="wide">
+          <label for="obi">帯文（100字まで）</label>
+          <textarea id="obi" maxlength="120" required placeholder="例：AIを使えない現場の人こそ読むべき。会議の空気を変える一冊。"></textarea>
+          <div class="counter" id="obiCount">0 / 100</div>
+        </div>
+        <div class="wide">
+          <label for="url">参考リンク（任意）</label>
+          <input type="url" id="url" placeholder="https://" />
+        </div>
+        <div class="wide">
+          <button class="btn" type="submit" id="submit">この本を候補に出す</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <footer><a href="../">← 班ワーク用プロンプトへ戻る</a><br />QommonsAI自主研 2026｜人がタネを出す。AIで広げる。人が選んで試す。</footer>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    // ===== 設定 =====
+    // Google Apps Script をウェブアプリとして公開したURLを入れる（README参照）。
+    // 空のままだと「お試しモード」になり、この端末のブラウザにだけ保存されます。
+    const API = '';
+
+    const DEMO_KEY = 'jisyuken-books-demo-v1';
+    const NAME_KEY = 'jisyuken-books-name-v1';
+    const DEFAULT_SETTINGS = { budget: 10000, coins: 3000, deadline: '', maxObi: 100 };
+
+    const $ = (id) => document.getElementById(id);
+    const yen = (n) => Math.round(n).toLocaleString('ja-JP') + ' 円';
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    const apiUrl = new URLSearchParams(location.search).get('api') || API;
+    let state = { settings: DEFAULT_SETTINGS, books: [], pledges: [] };
+    let busy = false;
+
+    // ===== トースト =====
+    let toastTimer;
+    function toast(message, isError) {
+      const el = $('toast');
+      el.textContent = message;
+      el.classList.toggle('error', !!isError);
+      el.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove('show'), isError ? 3200 : 1800);
+    }
+
+    // ===== 名前 =====
+    function myName() { return $('name').value.replace(/\s+/g, ' ').trim(); }
+    try { $('name').value = localStorage.getItem(NAME_KEY) || ''; } catch (e) { /* 保存不可 */ }
+    $('name').addEventListener('input', () => {
+      try { localStorage.setItem(NAME_KEY, myName()); } catch (e) { /* 保存不可 */ }
+      render();
+    });
+
+    // ===== データ取得・更新（本番 or お試し） =====
+    function loadDemo() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(DEMO_KEY) || 'null');
+        if (saved && saved.books) return saved;
+      } catch (e) { /* 壊れていたら作り直す */ }
+      return {
+        settings: DEFAULT_SETTINGS,
+        books: [
+          { id: 'demo1', title: '（お試し）図書館のAI活用ガイド', author: '架空 太郎', price: 2200, obi: 'AIを使えない現場の人こそ読むべき。会議の空気を変える一冊。', proposer: 'お試し', url: '' },
+          { id: 'demo2', title: '（お試し）自治体のデジタル小さな一歩', author: '仮名 花子', price: 1760, obi: '大きな改革はいらない。月曜から試せる小技が42個。', proposer: 'お試し', url: '' },
+          { id: 'demo3', title: '（お試し）問いの立て方', author: '例示 次郎', price: 3080, obi: '答えはAIが出す時代。問いを作れる人になる。', proposer: 'お試し', url: '' }
+        ],
+        pledges: [
+          { bookId: 'demo1', name: 'お試し', amount: 1500 },
+          { bookId: 'demo3', name: 'お試し', amount: 1000 }
+        ]
+      };
+    }
+    function saveDemo() {
+      try { localStorage.setItem(DEMO_KEY, JSON.stringify(state)); } catch (e) { /* 保存不可 */ }
+    }
+
+    function demoApply(body) {
+      const s = state.settings;
+      if (body.action === 'addBook') {
+        state.books.push({
+          id: 'd' + Date.now().toString(36), title: body.title, author: body.author, price: Math.round(Number(body.price)),
+          obi: body.obi, proposer: body.name, url: body.url, createdAt: new Date().toISOString()
+        });
+      } else if (body.action === 'pledge') {
+        const used = state.pledges.filter((p) => p.name === body.name).reduce((a, p) => a + p.amount, 0);
+        if (used + body.amount > s.coins) throw new Error('コインが足りません（残り ' + (s.coins - used) + ' 円）');
+        const hit = state.pledges.find((p) => p.bookId === body.bookId && p.name === body.name);
+        if (hit) hit.amount += body.amount; else state.pledges.push({ bookId: body.bookId, name: body.name, amount: body.amount });
+      } else if (body.action === 'withdraw') {
+        state.pledges = state.pledges.filter((p) => !(p.bookId === body.bookId && p.name === body.name));
+      }
+      saveDemo();
+    }
+
+    async function fetchState() {
+      if (!apiUrl) { state = loadDemo(); return; }
+      const res = await fetch(apiUrl, { method: 'GET', cache: 'no-store' });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      state = normalize(data);
+    }
+
+    async function send(body) {
+      if (busy) return;
+      busy = true;
+      render();
+      try {
+        if (!apiUrl) {
+          demoApply(body);
+        } else {
+          const res = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(body)
+          });
+          const data = await res.json();
+          if (data.error) throw new Error(data.error);
+          state = normalize(data);
+        }
+        return true;
+      } catch (err) {
+        toast(err.message || '送信できませんでした', true);
+        return false;
+      } finally {
+        busy = false;
+        render();
+      }
+    }
+
+    function normalize(data) {
+      return {
+        settings: Object.assign({}, DEFAULT_SETTINGS, data.settings || {}),
+        books: (data.books || []).map((b) => Object.assign({}, b, { price: Number(b.price) || 0 })),
+        pledges: (data.pledges || []).map((p) => Object.assign({}, p, { amount: Number(p.amount) || 0 })).filter((p) => p.amount > 0)
+      };
+    }
+
+    // ===== 集計 =====
+    function summarize() {
+      const byBook = {};
+      state.pledges.forEach((p) => {
+        byBook[p.bookId] = byBook[p.bookId] || { total: 0, backers: [] };
+        byBook[p.bookId].total += p.amount;
+        byBook[p.bookId].backers.push(p);
+      });
+      const books = state.books.map((b) => {
+        const agg = byBook[b.id] || { total: 0, backers: [] };
+        agg.backers.sort((x, y) => y.amount - x.amount);
+        return Object.assign({}, b, { total: agg.total, backers: agg.backers, funded: b.price > 0 && agg.total >= b.price });
+      });
+      books.sort((a, b) => (b.total / Math.max(b.price, 1)) - (a.total / Math.max(a.price, 1)) || b.total - a.total || a.price - b.price);
+      return books;
+    }
+
+    function isClosed() {
+      const d = state.settings.deadline;
+      if (!d) return false;
+      const end = new Date(d + 'T23:59:59+09:00');
+      return !isNaN(end) && Date.now() > end.getTime();
+    }
+
+    // 定価合計が予算内で、出資額合計が最大になる組み合わせを上位3つ
+    function bestCombos(books, budget) {
+      const items = books.filter((b) => b.total > 0 && b.price > 0 && b.price <= budget)
+        .sort((a, b) => b.total - a.total).slice(0, 18);
+      const results = [];
+      const pick = [];
+      function walk(i, price, score) {
+        if (i === items.length) {
+          if (pick.length) results.push({ items: pick.slice(), price, score });
+          return;
+        }
+        if (price + items[i].price <= budget) {
+          pick.push(items[i]);
+          walk(i + 1, price + items[i].price, score + items[i].total);
+          pick.pop();
+        }
+        walk(i + 1, price, score);
+      }
+      walk(0, 0, 0);
+      results.sort((a, b) => b.score - a.score || b.price - a.price);
+      return results.slice(0, 3);
+    }
+
+    // ===== 描画 =====
+    function render() {
+      const s = state.settings;
+      const books = summarize();
+      const name = myName();
+      const used = state.pledges.filter((p) => p.name === name).reduce((a, p) => a + p.amount, 0);
+      const remaining = Math.max(0, s.coins - used);
+      const closed = isClosed();
+
+      $('mode').className = 'mode' + (apiUrl ? ' live' : '');
+      $('mode').textContent = apiUrl
+        ? '班の共有データにつながっています。出資や登録は全員に見えます。'
+        : 'お試しモード：この端末のブラウザにだけ保存されます。班で共有するには README の手順で Apps Script のURLを設定してください。';
+
+      $('budgetLabel').textContent = s.budget.toLocaleString('ja-JP');
+      $('fundedTotal').textContent = yen(books.filter((b) => b.funded).reduce((a, b) => a + b.price, 0));
+      $('pledgeTotal').textContent = yen(state.pledges.reduce((a, p) => a + p.amount, 0));
+      $('bookCount').textContent = books.length + ' 冊';
+      $('myCoins').textContent = yen(remaining);
+      $('deadline').textContent = s.deadline
+        ? (closed ? '締め切りました（' + s.deadline + '）。出資は受け付けていません。' : '締め切り：' + s.deadline + ' 23:59')
+        : '締め切りは未設定です。';
+
+      const list = $('books');
+      if (!books.length) {
+        list.innerHTML = '<div class="empty">まだ候補がありません。下のフォームから最初の一冊を。</div>';
+      } else {
+        list.innerHTML = books.map((b, i) => {
+          const pct = b.price ? Math.min(100, Math.round(b.total / b.price * 100)) : 0;
+          const mine = b.backers.find((p) => p.name === name);
+          const canPledge = !!name && !closed && remaining > 0 && !busy;
+          const quick = [500, 1000].filter((v) => v <= remaining);
+          const buttons = quick.map((v) => `<button class="btn small" type="button" data-pledge="${b.id}" data-amount="${v}" ${canPledge ? '' : 'disabled'}>+${v.toLocaleString('ja-JP')}</button>`).join('');
+          const allIn = remaining > 0 ? `<button class="btn ghost small" type="button" data-pledge="${b.id}" data-amount="${remaining}" ${canPledge ? '' : 'disabled'}>残り全部（${remaining.toLocaleString('ja-JP')}）</button>` : '';
+          const withdraw = mine ? `<button class="btn danger small" type="button" data-withdraw="${b.id}" ${closed || busy ? 'disabled' : ''}>自分の出資を取り消す</button>` : '';
+          return `
+            <article class="book${b.funded ? ' funded' : ''}">
+              <span class="rank">${i + 1}位</span>
+              ${b.funded ? '<span class="badge">確定ライン到達</span>' : ''}
+              <h3>${esc(b.title)}</h3>
+              <p class="meta">${esc(b.author || '著者未記入')}｜定価 ${yen(b.price)}｜提案：${esc(b.proposer || '不明')}${b.url ? `｜<a href="${esc(b.url)}" target="_blank" rel="noopener">リンク</a>` : ''}</p>
+              <div class="obi">${esc(b.obi)}<small>── ${esc(b.proposer || '提案者')}の帯</small></div>
+              <div class="bar"><i style="width:${pct}%"></i></div>
+              <p class="amounts"><span>出資 <b>${yen(b.total)}</b></span><span>${pct}%${b.funded ? '' : '｜あと ' + yen(b.price - b.total)}</span></p>
+              <p class="backers">${b.backers.length ? b.backers.map((p) => `<span class="${p.name === name ? 'me' : ''}">${esc(p.name)} ${p.amount.toLocaleString('ja-JP')}</span>`).join('') : 'まだ出資なし。最初の出資者になろう。'}</p>
+              <div class="actions">${buttons}${allIn}${withdraw}</div>
+            </article>`;
+        }).join('');
+      }
+
+      const combos = bestCombos(books, s.budget);
+      $('combos').innerHTML = combos.length
+        ? combos.map((c, i) => `
+            <div class="combo">
+              <b>案${i + 1}｜定価合計 ${yen(c.price)}（余り ${yen(s.budget - c.price)}）</b>
+              <ul>${c.items.map((b) => `<li>${esc(b.title)}（${yen(b.price)}／出資 ${yen(b.total)}）</li>`).join('')}</ul>
+              <p class="tail">出資合計 ${yen(c.score)}</p>
+            </div>`).join('')
+        : '<div class="empty">出資のある本が増えると、ここに組み合わせが出ます。</div>';
+
+      $('submit').disabled = busy || closed;
+      $('reload').disabled = busy;
+    }
+
+    // ===== 操作 =====
+    $('books').addEventListener('click', async (ev) => {
+      const btn = ev.target.closest('button');
+      if (!btn) return;
+      const name = myName();
+      if (!name) { toast('先に名前を入れてください', true); $('name').focus(); return; }
+      if (btn.dataset.pledge) {
+        const amount = Number(btn.dataset.amount);
+        if (await send({ action: 'pledge', bookId: btn.dataset.pledge, name, amount })) toast(amount.toLocaleString('ja-JP') + ' 円を出資しました');
+      } else if (btn.dataset.withdraw) {
+        if (await send({ action: 'withdraw', bookId: btn.dataset.withdraw, name })) toast('出資を取り消しました');
+      }
+    });
+
+    $('obi').addEventListener('input', () => {
+      const n = $('obi').value.length;
+      const max = state.settings.maxObi || 100;
+      $('obiCount').textContent = n + ' / ' + max;
+      $('obiCount').classList.toggle('over', n > max);
+    });
+
+    $('form').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const name = myName();
+      if (!name) { toast('先に名前を入れてください', true); $('name').focus(); return; }
+      const obi = $('obi').value.trim();
+      if (obi.length > (state.settings.maxObi || 100)) { toast('帯文は100字までです', true); return; }
+      const body = {
+        action: 'addBook', name,
+        title: $('title').value.trim(), author: $('author').value.trim(),
+        price: Number($('price').value), obi, url: $('url').value.trim()
+      };
+      if (await send(body)) {
+        $('form').reset();
+        $('obiCount').textContent = '0 / ' + (state.settings.maxObi || 100);
+        toast('候補に追加しました。帯文で口説こう');
+        $('books').scrollIntoView({ behavior: 'smooth' });
+      }
+    });
+
+    async function reload(silent) {
+      try {
+        await fetchState();
+        render();
+        if (!silent) toast('更新しました');
+      } catch (err) {
+        $('mode').className = 'mode';
+        $('mode').textContent = 'データを読み込めませんでした。Apps Script のURLと公開設定を確認してください。';
+        if (!silent) toast('読み込めませんでした', true);
+      }
+    }
+    $('reload').addEventListener('click', () => reload(false));
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && apiUrl) reload(true); });
+    if (apiUrl) setInterval(() => reload(true), 60000);
+
+    render();
+    reload(true);
+  </script>
+</body>
+</html>
