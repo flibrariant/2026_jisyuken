@@ -2,534 +2,743 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#102a56" />
-  <meta name="description" content="QommonsAI自主研の図書予算1万円を、仮想コインの出資で決めるクラファン風アプリ" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#05070f" />
+  <meta name="description" content="QommonsAI自主研の本の銀河。みんなのおすすめ本が浮かぶ空間。気になる本をタップして「読みたい」を押すだけ。" />
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="QommonsAI自主研｜1万円クラファン" />
-  <meta property="og:description" content="一人3,000コイン。読みたい本に出資して、本物の1万円枠を奪い合う。" />
-  <title>QommonsAI自主研｜1万円クラファン</title>
+  <meta property="og:title" content="本の銀河｜QommonsAI自主研" />
+  <meta property="og:description" content="おすすめ本が浮かぶ空間。なでて回して、気になる本をタップ。" />
+  <title>本の銀河｜QommonsAI自主研</title>
   <style>
     :root {
-      --navy: #102a56;
-      --blue: #2d62d7;
-      --sky: #eaf3ff;
-      --cream: #fffaf0;
-      --yellow: #ffd85a;
-      --mint: #dff4e9;
-      --green: #1f8a5a;
-      --red: #c8402f;
-      --ink: #16233a;
-      --muted: #5d6b80;
-      --line: #d8e1ee;
-      --white: #ffffff;
-      --shadow: 0 18px 60px rgba(24, 52, 94, .12);
+      --bg: #05070f;
+      --ink: #eef2ff;
+      --muted: #9aa6c4;
+      --panel: rgba(12, 16, 32, .92);
+      --line: rgba(255,255,255,.12);
+      --accent: #ffd85a;
+      --heart: #ff5c8a;
+      --blue: #5b8cff;
     }
-    * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
-    body {
-      margin: 0;
-      color: var(--ink);
-      background:
-        radial-gradient(circle at 8% 0%, rgba(89, 146, 255, .18), transparent 28rem),
-        radial-gradient(circle at 96% 8%, rgba(255, 216, 90, .19), transparent 24rem),
-        #f6f9fd;
-      font-family: "Yu Gothic UI", "Yu Gothic", "Hiragino Sans", Meiryo, sans-serif;
-      line-height: 1.7;
-    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; margin: 0; overflow: hidden; background: var(--bg); color: var(--ink);
+      font-family: "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", Meiryo, sans-serif; line-height: 1.6; }
     button, input, textarea { font: inherit; }
-    .shell { width: min(960px, calc(100% - 32px)); margin: 0 auto; }
-    .hero { padding: 48px 0 20px; }
-    .eyebrow {
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 7px 13px; border: 1px solid rgba(45,98,215,.22);
-      border-radius: 999px; color: var(--blue); background: rgba(255,255,255,.75);
-      font-size: 13px; font-weight: 800; letter-spacing: .06em;
-    }
-    h1 { margin: 16px 0 10px; color: var(--navy); font-size: clamp(32px, 6vw, 56px); line-height: 1.1; letter-spacing: -.03em; }
-    .lead { max-width: 640px; margin: 0; color: var(--muted); font-size: clamp(15px, 2.2vw, 18px); }
-    .rules { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 22px 0 0; }
-    .rule { padding: 14px; border-radius: 14px; background: var(--navy); color: white; font-size: 14px; }
-    .rule b { display: block; margin-bottom: 4px; color: var(--yellow); font-size: 12px; letter-spacing: .08em; }
+    #stage { position: fixed; inset: 0; touch-action: none; }
+    #stage canvas { display: block; }
 
-    .card {
-      margin: 0 0 22px; padding: 22px; border: 1px solid var(--line); border-radius: 22px;
-      background: var(--white); box-shadow: var(--shadow);
-    }
-    .card h2 { margin: 0 0 6px; color: var(--navy); font-size: 21px; }
-    .card .sub { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+    .top { position: fixed; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: flex-start;
+      padding: calc(12px + env(safe-area-inset-top)) 14px 0; pointer-events: none; z-index: 5; }
+    .top > * { pointer-events: auto; }
+    .brand { display: flex; flex-direction: column; gap: 2px; }
+    .brand h1 { margin: 0; font-size: 20px; font-weight: 900; letter-spacing: .02em; text-shadow: 0 2px 14px rgba(0,0,0,.6); }
+    .brand small { color: var(--muted); font-size: 12px; }
+    .hearts { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 999px; background: var(--panel);
+      border: 1px solid var(--line); font-size: 13px; font-weight: 800; cursor: pointer; }
+    .hearts .h { color: var(--heart); font-size: 15px; letter-spacing: 2px; }
+    .hearts .h .off { opacity: .22; }
+    .hint { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 4;
+      padding: 8px 14px; border-radius: 999px; background: rgba(0,0,0,.45); color: var(--muted); font-size: 13px; pointer-events: none;
+      transition: opacity .5s ease; white-space: nowrap; }
+    .hint.gone { opacity: 0; }
 
-    .gauge { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-    .stat { padding: 14px; border-radius: 14px; background: var(--sky); }
-    .stat small { display: block; color: var(--muted); font-size: 12px; letter-spacing: .06em; }
-    .stat strong { display: block; color: var(--navy); font-size: 26px; line-height: 1.2; }
-    .stat.mine { background: var(--cream); }
-    .stat.done { background: var(--mint); }
+    .bottom { position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; align-items: center; gap: 10px;
+      padding: 10px 14px calc(12px + env(safe-area-inset-bottom)); z-index: 5; pointer-events: none; }
+    .bottom > * { pointer-events: auto; }
+    .btn { padding: 11px 16px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink); background: var(--panel);
+      cursor: pointer; font-weight: 800; font-size: 14px; }
+    .btn.primary { color: #1b1300; background: var(--accent); border-color: transparent; }
+    .btn.heart { color: #fff; background: var(--heart); border-color: transparent; }
+    .btn.heart.on { background: #2b1a22; color: var(--heart); border-color: var(--heart); }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .btn.small { padding: 8px 12px; font-size: 13px; }
 
-    .me { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end; }
-    label { display: block; font-size: 13px; font-weight: 800; color: var(--navy); margin-bottom: 4px; }
-    input[type=text], input[type=number], input[type=url], textarea {
-      width: 100%; padding: 11px 13px; border: 1px solid var(--line); border-radius: 12px; background: #fff;
-    }
-    textarea { min-height: 84px; resize: vertical; }
-    .hint { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
-    .btn {
-      padding: 11px 16px; border: 0; border-radius: 12px; color: white; background: var(--blue);
-      cursor: pointer; font-weight: 900; box-shadow: 0 8px 20px rgba(45,98,215,.22);
-      transition: transform .15s ease, background .15s ease;
-    }
-    .btn:hover { transform: translateY(-1px); }
-    .btn:disabled { opacity: .45; cursor: not-allowed; transform: none; box-shadow: none; }
-    .btn.ghost { color: var(--navy); background: var(--sky); box-shadow: none; }
-    .btn.danger { color: var(--red); background: #fdecea; box-shadow: none; }
-    .btn.small { padding: 8px 12px; font-size: 13px; border-radius: 10px; }
-
-    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-    .toolbar .sub { margin: 0; }
-
-    .books { display: grid; gap: 14px; }
-    .book {
-      position: relative; padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: #fff;
-    }
-    .book.funded { border-color: rgba(31,138,90,.5); background: linear-gradient(180deg, #f3fbf6, #fff 60%); }
-    .book .rank { position: absolute; top: -10px; left: 14px; padding: 2px 10px; border-radius: 999px; background: var(--navy); color: var(--yellow); font-size: 12px; font-weight: 900; }
-    .book .badge { position: absolute; top: -10px; right: 14px; padding: 2px 10px; border-radius: 999px; background: var(--green); color: white; font-size: 12px; font-weight: 900; }
-    .book h3 { margin: 6px 0 2px; color: var(--navy); font-size: 18px; line-height: 1.3; }
-    .book .meta { margin: 0; color: var(--muted); font-size: 13px; }
-    .obi {
-      margin: 10px 0; padding: 10px 12px; border-left: 4px solid var(--yellow); background: var(--cream);
-      border-radius: 0 10px 10px 0; font-size: 15px;
-    }
+    .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; max-height: 82vh; overflow: auto;
+      padding: 14px 16px calc(18px + env(safe-area-inset-bottom)); border-radius: 22px 22px 0 0;
+      background: var(--panel); border-top: 1px solid var(--line); backdrop-filter: blur(14px);
+      transform: translateY(105%); transition: transform .28s cubic-bezier(.2,.8,.2,1); }
+    .sheet.open { transform: translateY(0); }
+    .sheet .close { position: absolute; top: 10px; right: 12px; width: 34px; height: 34px; border-radius: 50%; border: 0;
+      background: rgba(255,255,255,.08); color: var(--ink); cursor: pointer; font-size: 18px; }
+    .grab { width: 40px; height: 4px; margin: 0 auto 10px; border-radius: 2px; background: rgba(255,255,255,.2); }
+    .detail { display: grid; grid-template-columns: 112px 1fr; gap: 14px; }
+    .detail img, .detail .noimg { width: 112px; aspect-ratio: 0.7; object-fit: cover; border-radius: 6px; box-shadow: 0 10px 30px rgba(0,0,0,.6); background: #1a2340; }
+    .detail .noimg { display: flex; align-items: center; justify-content: center; padding: 8px; font-size: 12px; color: var(--muted); text-align: center; }
+    .detail h2 { margin: 0 0 4px; font-size: 17px; line-height: 1.35; }
+    .detail .meta { margin: 0; color: var(--muted); font-size: 12px; }
+    .detail .price { margin: 6px 0 0; font-size: 14px; font-weight: 800; color: var(--accent); }
+    .obi { margin: 12px 0 0; padding: 10px 12px; border-left: 3px solid var(--accent); background: rgba(255,216,90,.08); border-radius: 0 10px 10px 0; font-size: 14px; }
     .obi small { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; }
-    .bar { height: 10px; border-radius: 999px; background: var(--sky); overflow: hidden; }
-    .bar i { display: block; height: 100%; background: var(--blue); transition: width .4s ease; }
-    .book.funded .bar i { background: var(--green); }
-    .amounts { display: flex; justify-content: space-between; margin: 6px 0 0; font-size: 13px; color: var(--muted); }
-    .amounts b { color: var(--navy); }
-    .backers { margin: 8px 0 0; font-size: 12px; color: var(--muted); }
-    .backers span { display: inline-block; margin: 2px 6px 0 0; padding: 1px 8px; border-radius: 999px; background: var(--sky); color: var(--navy); }
-    .backers span.me { background: var(--yellow); }
-    .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-    .empty { padding: 30px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 16px; }
+    .voters { margin: 10px 0 0; font-size: 12px; color: var(--muted); }
+    .voters span { display: inline-block; margin: 2px 6px 0 0; padding: 1px 8px; border-radius: 999px; background: rgba(255,92,138,.15); color: #ffb3c8; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; align-items: center; }
+    .actions a { color: var(--blue); font-size: 13px; }
 
-    .combos { display: grid; gap: 10px; }
-    .combo { padding: 14px; border-radius: 14px; background: var(--sky); }
-    .combo b { color: var(--navy); }
-    .combo ul { margin: 6px 0 0; padding-left: 18px; font-size: 14px; }
-    .combo .tail { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
+    label { display: block; margin: 10px 0 4px; font-size: 12px; font-weight: 800; color: var(--muted); }
+    input[type=text], input[type=number], textarea { width: 100%; padding: 11px 12px; border-radius: 12px; border: 1px solid var(--line);
+      background: rgba(255,255,255,.06); color: var(--ink); }
+    textarea { min-height: 72px; resize: vertical; }
+    .row { display: flex; gap: 8px; }
+    .row input { flex: 1; }
+    .cands { display: grid; gap: 8px; margin-top: 10px; }
+    .cand { display: grid; grid-template-columns: 44px 1fr; gap: 10px; align-items: center; padding: 8px; border-radius: 12px;
+      border: 1px solid var(--line); background: rgba(255,255,255,.04); cursor: pointer; text-align: left; color: var(--ink); }
+    .cand img, .cand .noimg { width: 44px; aspect-ratio: .7; object-fit: cover; border-radius: 3px; background: #1a2340; }
+    .cand b { display: block; font-size: 13px; line-height: 1.3; }
+    .cand small { color: var(--muted); font-size: 11px; }
+    .picked { display: grid; grid-template-columns: 64px 1fr; gap: 10px; align-items: center; margin-top: 10px; padding: 10px; border-radius: 12px; background: rgba(255,216,90,.08); border: 1px solid rgba(255,216,90,.3); }
+    .picked img, .picked .noimg { width: 64px; aspect-ratio: .7; object-fit: cover; border-radius: 4px; background: #1a2340; }
+    .counter { text-align: right; font-size: 11px; color: var(--muted); }
+    .counter.over { color: var(--heart); font-weight: 800; }
+    .note { margin: 8px 0 0; font-size: 12px; color: var(--muted); }
 
-    .form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .form .wide { grid-column: 1 / -1; }
-    .counter { text-align: right; font-size: 12px; color: var(--muted); }
-    .counter.over { color: var(--red); font-weight: 800; }
+    .modal { position: fixed; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(0,0,0,.6); }
+    .modal.open { display: flex; }
+    .modal .box { width: min(360px, 100%); padding: 20px; border-radius: 18px; background: var(--panel); border: 1px solid var(--line); }
+    .modal h3 { margin: 0 0 6px; font-size: 17px; }
+    .modal p { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
 
-    .mode { margin: 0 0 18px; padding: 10px 14px; border-radius: 12px; background: var(--cream); border: 1px solid #f1dd9a; font-size: 13px; }
-    .mode.live { background: var(--mint); border-color: #b9e3cc; }
-
-    footer { padding: 30px 0 40px; color: var(--muted); font-size: 13px; text-align: center; }
-    footer a { color: var(--blue); }
-    .toast {
-      position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px);
-      padding: 12px 18px; border-radius: 12px; background: var(--navy); color: white; font-weight: 800;
-      opacity: 0; transition: opacity .2s ease, transform .2s ease; pointer-events: none; max-width: calc(100% - 32px);
-    }
+    .toast { position: fixed; left: 50%; top: calc(64px + env(safe-area-inset-top)); transform: translate(-50%, -10px); z-index: 30;
+      padding: 10px 16px; border-radius: 12px; background: #fff; color: #111; font-weight: 800; font-size: 14px; opacity: 0;
+      transition: opacity .2s ease, transform .2s ease; pointer-events: none; max-width: calc(100% - 32px); }
     .toast.show { opacity: 1; transform: translate(-50%, 0); }
-    .toast.error { background: var(--red); }
-    @media (max-width: 720px) {
-      .hero { padding-top: 32px; }
-      .rules, .form { grid-template-columns: 1fr; }
-      .gauge { grid-template-columns: 1fr 1fr; }
-      .me { grid-template-columns: 1fr; }
-      .stat strong { font-size: 22px; }
-    }
-    @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+    .toast.error { background: var(--heart); color: #fff; }
+
+    /* WebGL が使えないときの2D表示 */
+    #grid { display: none; position: fixed; inset: 0; overflow: auto; padding: calc(70px + env(safe-area-inset-top)) 14px 90px; z-index: 1; }
+    #grid .g { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 12px; }
+    #grid button { padding: 0; border: 0; background: none; color: var(--ink); cursor: pointer; text-align: left; }
+    #grid img, #grid .noimg { width: 100%; aspect-ratio: .7; object-fit: cover; border-radius: 6px; background: #1a2340; box-shadow: 0 8px 24px rgba(0,0,0,.5); }
+    #grid .noimg { display: flex; align-items: center; justify-content: center; padding: 6px; font-size: 11px; color: var(--muted); text-align: center; }
+    #grid b { display: block; margin-top: 4px; font-size: 11px; line-height: 1.3; }
+    .loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 14px; z-index: 2; pointer-events: none; }
+    @media (prefers-reduced-motion: reduce) { .sheet { transition: none; } }
   </style>
 </head>
 <body>
-  <header class="hero">
-    <div class="shell">
-      <span class="eyebrow">QommonsAI自主研 2026｜図書予算</span>
-      <h1>1万円クラファン</h1>
-      <p class="lead">参加は自由。やりたい人だけ名前を入れて、一人3,000コインを好きな本に出資。本物の予算1万円の枠を奪い合います。候補を足して帯文で口説くのも歓迎。</p>
-      <div class="rules">
-        <div class="rule"><b>01 参加</b>名前を入れたら参加。候補を足すなら100字の帯文つきで。</div>
-        <div class="rule"><b>02 出資</b>3,000コインを分けて出資。定価に届いた本は「確定ライン到達」。</div>
-        <div class="rule"><b>03 ぴったり</b>締め切り後、出資の多い本から1万円に収まる組み合わせを提案。定価到達は必須じゃない。</div>
-      </div>
+  <div id="stage"></div>
+  <div id="grid"><div class="g" id="gridInner"></div></div>
+  <div class="loading" id="loading">本を集めています…</div>
+
+  <div class="top">
+    <div class="brand">
+      <h1>本の銀河</h1>
+      <small id="count">QommonsAI自主研</small>
     </div>
-  </header>
+    <button class="hearts" id="heartsBtn" type="button" title="自分の「読みたい」"><span id="heartsName">読みたい</span><span class="h" id="heartsIcons">♥♥♥</span></button>
+  </div>
+  <div class="hint" id="hint">なでて回す。気になる本をタップ。</div>
+  <div class="bottom">
+    <button class="btn" id="addBtn" type="button">＋ 本を足す</button>
+    <button class="btn small" id="modeBtn" type="button" style="display:none">2D表示</button>
+  </div>
 
-  <main class="shell">
-    <div class="mode" id="mode">読み込み中…</div>
+  <section class="sheet" id="detail" aria-label="本の詳細">
+    <div class="grab"></div>
+    <button class="close" type="button" data-close="detail" aria-label="閉じる">×</button>
+    <div id="detailBody"></div>
+  </section>
 
-    <section class="card">
-      <h2>予算メーター</h2>
-      <p class="sub">本物の予算は <b id="budgetLabel">10,000</b> 円。参加者が少なくても、出資のある本から組み合わせを決めます。</p>
-      <div class="gauge">
-        <div class="stat done"><small>確定ライン到達の本</small><strong id="fundedTotal">0 円</strong></div>
-        <div class="stat"><small>出資総額（コイン）</small><strong id="pledgeTotal">0 円</strong></div>
-        <div class="stat"><small>参加者</small><strong id="memberCount">0 人</strong></div>
-        <div class="stat"><small>候補の本</small><strong id="bookCount">0 冊</strong></div>
+  <section class="sheet" id="add" aria-label="本を足す">
+    <div class="grab"></div>
+    <button class="close" type="button" data-close="add" aria-label="閉じる">×</button>
+    <h2 style="margin:0 0 4px;font-size:17px">この本いいよ、を足す</h2>
+    <p class="note" style="margin:0">書名かISBNを入れて検索すると、表紙や定価を自動で持ってきます。</p>
+    <label for="q">書名 / ISBN</label>
+    <div class="row">
+      <input type="text" id="q" placeholder="例：イシューからはじめよ" autocomplete="off" />
+      <button class="btn small" id="searchBtn" type="button">検索</button>
+    </div>
+    <div class="cands" id="cands"></div>
+    <form id="addForm" style="display:none">
+      <div class="picked" id="picked"></div>
+      <label for="fTitle">書名</label>
+      <input type="text" id="fTitle" maxlength="120" required />
+      <div class="row">
+        <div style="flex:1"><label for="fAuthor">著者</label><input type="text" id="fAuthor" maxlength="80" /></div>
+        <div style="width:120px"><label for="fPrice">定価（円）</label><input type="number" id="fPrice" min="0" step="1" inputmode="numeric" /></div>
       </div>
-      <p class="hint" id="deadline"></p>
-    </section>
+      <label for="fObi">ひとこと（推薦の言葉、100字まで）</label>
+      <textarea id="fObi" maxlength="120" required placeholder="例：会議の空気を変える一冊。"></textarea>
+      <div class="counter" id="obiCount">0 / 100</div>
+      <label for="fName">あなたの名前</label>
+      <input type="text" id="fName" maxlength="30" required placeholder="班で呼ばれている名前" />
+      <div class="actions"><button class="btn primary" type="submit" id="addSubmit">銀河に浮かべる</button><button class="btn small" type="button" id="manualBtn">検索せずに手で入れる</button></div>
+    </form>
+    <div class="actions" id="manualRow"><button class="btn small" type="button" id="manualBtn2">検索せずに手で入れる</button></div>
+  </section>
 
-    <section class="card">
-      <h2>あなたの財布</h2>
-      <p class="sub">参加したい人だけ名前を入れてください。この端末に覚えておきます。班で呼ばれている名前で大丈夫です。</p>
-      <div class="me">
-        <div>
-          <label for="name">名前</label>
-          <input type="text" id="name" maxlength="30" placeholder="例：森野" autocomplete="nickname" />
-        </div>
-        <div class="stat mine"><small>残りコイン</small><strong id="myCoins">3,000 円</strong></div>
-      </div>
-    </section>
+  <div class="modal" id="nameModal">
+    <div class="box">
+      <h3>名前を教えてください</h3>
+      <p>「読みたい」は一人3冊まで。名前はこのスマホに覚えておきます。</p>
+      <input type="text" id="nameInput" maxlength="30" placeholder="班で呼ばれている名前" />
+      <div class="actions"><button class="btn primary" id="nameOk" type="button">これでいく</button><button class="btn small" id="nameCancel" type="button">やめる</button></div>
+    </div>
+  </div>
 
-    <section class="card">
-      <div class="toolbar">
-        <div>
-          <h2>候補の本</h2>
-          <p class="sub">出資の多い順。最初の9冊は幹事が並べたAI関連の候補です。帯文を読んで、張る本を決めてください。</p>
-        </div>
-        <button class="btn ghost small" id="reload" type="button">更新する</button>
-      </div>
-      <div class="books" id="books"></div>
-    </section>
-
-    <section class="card">
-      <h2>1万円ぴったり提案</h2>
-      <p class="sub">出資額の合計が最大になり、定価の合計が1万円に収まる組み合わせです。最終決定は締め切り後に幹事が行います。</p>
-      <div class="combos" id="combos"></div>
-    </section>
-
-    <section class="card" id="register">
-      <h2>本を登録する</h2>
-      <p class="sub">帯文は100字まで。ここが勝負です。QommonsAIに帯文の案を出させるのもあり。</p>
-      <form class="form" id="form">
-        <div class="wide">
-          <label for="title">タイトル</label>
-          <input type="text" id="title" maxlength="80" required />
-        </div>
-        <div>
-          <label for="author">著者</label>
-          <input type="text" id="author" maxlength="60" />
-        </div>
-        <div>
-          <label for="price">定価（円、税込）</label>
-          <input type="number" id="price" min="1" max="30000" step="1" inputmode="numeric" required />
-        </div>
-        <div class="wide">
-          <label for="obi">帯文（100字まで）</label>
-          <textarea id="obi" maxlength="120" required placeholder="例：AIを使えない現場の人こそ読むべき。会議の空気を変える一冊。"></textarea>
-          <div class="counter" id="obiCount">0 / 100</div>
-        </div>
-        <div class="wide">
-          <label for="url">参考リンク（任意）</label>
-          <input type="url" id="url" placeholder="https://" />
-        </div>
-        <div class="wide">
-          <button class="btn" type="submit" id="submit">この本を候補に出す</button>
-        </div>
-      </form>
-    </section>
-  </main>
-
-  <footer><a href="../">← 班ワーク用プロンプトへ戻る</a><br />QommonsAI自主研 2026｜人がタネを出す。AIで広げる。人が選んで試す。</footer>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+  <script src="vendor/three.min.js"></script>
   <script>
-    // ===== 設定 =====
-    // Google Apps Script をウェブアプリとして公開したURLを入れる（README参照）。
-    // 空のままだと「お試しモード」になり、この端末のブラウザにだけ保存されます。
-    const API = '';
-
-    const DEMO_KEY = 'jisyuken-books-demo-v1';
-    const NAME_KEY = 'jisyuken-books-name-v1';
-    const DEFAULT_SETTINGS = { budget: 10000, coins: 3000, deadline: '', maxObi: 100 };
-
-    // 最初から並べておく候補（お試しモード用。共有モードでは Code.gs 側の同じリストがシートに入る）
-    const SEED_BOOKS = [
-          {"id": "seed01", "title": "どんな仕事も効率アップ！ 公務員の生成AI超活用術", "author": "学陽書房", "price": 2530, "obi": "議会答弁、住民アンケート、広報チラシ。現役自治体職員が「うちの仕事」で使う手順を書いた一冊。QommonsAIに一番近い。", "proposer": "初期候補", "url": "https://www.gakuyo.co.jp/book/b10159129.html"},
-          {"id": "seed02", "title": "図書館員のための生成AI入門 しくみを知り、活かすために", "author": "中島玲子（JLA図書館実践シリーズ）", "price": 2420, "obi": "図書館の現場向けに、生成AIのしくみと使いどころを107ページに凝縮。薄いので回覧しやすい。", "proposer": "初期候補", "url": "https://www.jla.or.jp/publications/978-4-8204-2602-8/"},
-          {"id": "seed03", "title": "大規模言語モデルは新たな知能か ChatGPTが変えた世界", "author": "岡野原大輔（岩波科学ライブラリー）", "price": 1540, "obi": "「なぜ答えられるのか」を第一線の研究者が平易に。仕組みを一度ちゃんと知っておきたい人へ。", "proposer": "初期候補", "url": "https://www.kinokuniya.co.jp/f/dsg-01-9784000297196"},
-          {"id": "seed04", "title": "生成AIで世界はこう変わる", "author": "今井翔太（SB新書）", "price": 1100, "obi": "仕事、教育、創作はどう変わるか。新書1冊で全体像をつかむ最短ルート。", "proposer": "初期候補", "url": "https://www.kinokuniya.co.jp/f/dsg-01-9784815622978"},
-          {"id": "seed05", "title": "ChatGPTの頭の中", "author": "スティーヴン・ウルフラム（ハヤカワ新書）", "price": 1012, "obi": "Mathematicaの作者が「次の単語を当てるだけ」の正体を168ページで解剖。薄くて深い。", "proposer": "初期候補", "url": "https://www.kinokuniya.co.jp/f/dsg-01-9784153400092"},
-          {"id": "seed06", "title": "生成AIの核心 「新しい知」といかに向き合うか", "author": "西田宗千佳（NHK出版新書）", "price": 1023, "obi": "技術の話より「どう付き合うか」。使えない現場にいる人こそ、距離感を決めるために。", "proposer": "初期候補", "url": "https://www.kinokuniya.co.jp/f/dsg-01-9784140887059"},
-          {"id": "seed07", "title": "画像生成AIと著作権について知っておきたい50の質問", "author": "ニャタBE・花井裕也・谷直樹（オーム社）", "price": 1980, "obi": "イラストレーター、エンジニア、弁護士の3人がQ&Aで議論。著作権の相談を受ける側の予習に。", "proposer": "初期候補", "url": "https://www.kinokuniya.co.jp/f/dsg-01-9784274231179"},
-          {"id": "seed08", "title": "生成AIで爆速！ ChatGPT仕事術", "author": "鈴木眞里子（日経文庫ビジュアル）", "price": 1100, "obi": "文書作成、要約、企画立案のプロンプト例をビジュアルで。明日から真似できる即効型。", "proposer": "初期候補", "url": "https://bookplus.nikkei.com/atcl/catalog/25/09/01/02171/"},
-          {"id": "seed09", "title": "AI白書 2025 生成AIエディション", "author": "東京大学 松尾・岩澤研究室 監修（角川アスキー総合研究所）", "price": 4400, "obi": "予算の4割を食う重量級。でも国内の動向と事例が1冊に揃う。班の共有本棚に置く1冊として。", "proposer": "初期候補", "url": "https://www.kinokuniya.co.jp/f/dsg-01-9784049112382"}
-    ];
+    // ================= 設定 =================
+    // 同じフォルダの api.php を使う。別の場所に置いたら API を書き換える（?api=URL でも上書き可）。
+    const API = 'api.php';
+    const SEED_URL = 'seed.json';
+    const NAME_KEY = 'jisyuken-galaxy-name-v1';
+    const DEMO_KEY = 'jisyuken-galaxy-demo-v1';
+    const HINT_KEY = 'jisyuken-galaxy-hint-v1';
 
     const $ = (id) => document.getElementById(id);
-    const yen = (n) => Math.round(n).toLocaleString('ja-JP') + ' 円';
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const yen = (n) => (n == null || n === '' ? '定価未取得' : Math.round(Number(n)).toLocaleString('ja-JP') + ' 円');
 
     const apiUrl = new URLSearchParams(location.search).get('api') || API;
-    let state = { settings: DEFAULT_SETTINGS, books: [], pledges: [] };
-    let busy = false;
+    let live = false;            // api.php につながっているか
+    let state = { settings: { hearts: 3, maxObi: 100 }, books: [] };
+    let myName = '';
+    try { myName = localStorage.getItem(NAME_KEY) || ''; } catch (e) { /* 保存不可 */ }
 
-    // ===== トースト =====
+    // ================= トースト =================
     let toastTimer;
-    function toast(message, isError) {
+    function toast(msg, isError) {
       const el = $('toast');
-      el.textContent = message;
-      el.classList.toggle('error', !!isError);
-      el.classList.add('show');
-      clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => el.classList.remove('show'), isError ? 3200 : 1800);
+      el.textContent = msg; el.classList.toggle('error', !!isError); el.classList.add('show');
+      clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), isError ? 3200 : 1800);
     }
 
-    // ===== 名前 =====
-    function myName() { return $('name').value.replace(/\s+/g, ' ').trim(); }
-    try { $('name').value = localStorage.getItem(NAME_KEY) || ''; } catch (e) { /* 保存不可 */ }
-    $('name').addEventListener('input', () => {
-      try { localStorage.setItem(NAME_KEY, myName()); } catch (e) { /* 保存不可 */ }
-      render();
-    });
+    // ================= データ =================
+    function normalize(data) {
+      return {
+        settings: Object.assign({ hearts: 3, maxObi: 100 }, data.settings || {}),
+        books: (data.books || []).map((b) => Object.assign({ voters: [], votes: 0 }, b, { votes: (b.voters || []).length }))
+      };
+    }
 
-    // ===== データ取得・更新（本番 or お試し） =====
-    function loadDemo() {
+    async function loadDemo() {
+      let saved = null;
+      try { saved = JSON.parse(localStorage.getItem(DEMO_KEY) || 'null'); } catch (e) { /* 壊れていたら作り直す */ }
+      if (saved && saved.books) return normalize(saved);
+      const res = await fetch(SEED_URL, { cache: 'no-store' });
+      const seeds = await res.json();
+      return normalize({ books: seeds.map((s) => Object.assign({}, s, { cover: s.cover || (s.isbn ? 'https://cover.openbd.jp/' + s.isbn + '.jpg' : ''), voters: [] })) });
+    }
+    function saveDemo() { try { localStorage.setItem(DEMO_KEY, JSON.stringify(state)); } catch (e) { /* 保存不可 */ } }
+
+    async function fetchState() {
       try {
-        const saved = JSON.parse(localStorage.getItem(DEMO_KEY) || 'null');
-        if (saved && saved.books) return saved;
-      } catch (e) { /* 壊れていたら作り直す */ }
-      return { settings: DEFAULT_SETTINGS, books: SEED_BOOKS.map((b) => Object.assign({}, b)), pledges: [] };
-    }
-    function saveDemo() {
-      try { localStorage.setItem(DEMO_KEY, JSON.stringify(state)); } catch (e) { /* 保存不可 */ }
+        const res = await fetch(apiUrl, { cache: 'no-store' });
+        if (!res.ok) throw new Error('api ' + res.status);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        live = true;
+        state = normalize(data);
+      } catch (err) {
+        live = false;
+        state = await loadDemo();
+      }
     }
 
     function demoApply(body) {
-      const s = state.settings;
-      if (body.action === 'addBook') {
-        state.books.push({
-          id: 'd' + Date.now().toString(36), title: body.title, author: body.author, price: Math.round(Number(body.price)),
-          obi: body.obi, proposer: body.name, url: body.url, createdAt: new Date().toISOString()
-        });
-      } else if (body.action === 'pledge') {
-        const used = state.pledges.filter((p) => p.name === body.name).reduce((a, p) => a + p.amount, 0);
-        if (used + body.amount > s.coins) throw new Error('コインが足りません（残り ' + (s.coins - used) + ' 円）');
-        const hit = state.pledges.find((p) => p.bookId === body.bookId && p.name === body.name);
-        if (hit) hit.amount += body.amount; else state.pledges.push({ bookId: body.bookId, name: body.name, amount: body.amount });
-      } else if (body.action === 'withdraw') {
-        state.pledges = state.pledges.filter((p) => !(p.bookId === body.bookId && p.name === body.name));
+      const hearts = state.settings.hearts;
+      if (body.action === 'vote') {
+        const b = state.books.find((x) => x.id === body.bookId);
+        const mine = state.books.filter((x) => x.voters.includes(body.name)).length;
+        if (!b.voters.includes(body.name)) {
+          if (mine >= hearts) throw new Error('「読みたい」は' + hearts + '冊までです。どれかを外してください');
+          b.voters.push(body.name);
+        }
+      } else if (body.action === 'unvote') {
+        const b = state.books.find((x) => x.id === body.bookId);
+        b.voters = b.voters.filter((n) => n !== body.name);
+      } else if (body.action === 'addBook') {
+        if (state.books.some((x) => x.title === body.title || (body.isbn && x.isbn === body.isbn))) throw new Error('その本はもう登録されています');
+        state.books.push({ id: 'd' + Date.now().toString(36), title: body.title, author: body.author || '', publisher: body.publisher || '',
+          price: body.price || null, isbn: body.isbn || '', cover: body.cover || (body.isbn ? 'https://cover.openbd.jp/' + body.isbn + '.jpg' : ''),
+          url: body.url || '', obi: body.obi, proposer: body.name, voters: [], created_at: new Date().toISOString() });
       }
+      state.books.forEach((b) => { b.votes = b.voters.length; });
       saveDemo();
     }
 
-    async function fetchState() {
-      if (!apiUrl) { state = loadDemo(); return; }
-      const res = await fetch(apiUrl, { method: 'GET', cache: 'no-store' });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      state = normalize(data);
-    }
-
     async function send(body) {
-      if (busy) return;
-      busy = true;
-      render();
       try {
-        if (!apiUrl) {
-          demoApply(body);
-        } else {
-          const res = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify(body)
-          });
-          const data = await res.json();
-          if (data.error) throw new Error(data.error);
-          state = normalize(data);
-        }
+        if (!live) { demoApply(body); return true; }
+        const res = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        state = normalize(data);
         return true;
       } catch (err) {
         toast(err.message || '送信できませんでした', true);
         return false;
-      } finally {
-        busy = false;
-        render();
       }
     }
 
-    function normalize(data) {
-      return {
-        settings: Object.assign({}, DEFAULT_SETTINGS, data.settings || {}),
-        books: (data.books || []).map((b) => Object.assign({}, b, { price: Number(b.price) || 0 })),
-        pledges: (data.pledges || []).map((p) => Object.assign({}, p, { amount: Number(p.amount) || 0 })).filter((p) => p.amount > 0)
-      };
+    // ================= 表紙（プレースホルダー生成） =================
+    function hue(str) { let h = 0; for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) % 360; return h; }
+    function placeholderCanvas(book) {
+      const w = 256, h = 366, c = document.createElement('canvas'); c.width = w; c.height = h;
+      const g = c.getContext('2d');
+      const hu = hue(book.title);
+      const grad = g.createLinearGradient(0, 0, w, h);
+      grad.addColorStop(0, 'hsl(' + hu + ', 45%, 30%)'); grad.addColorStop(1, 'hsl(' + ((hu + 40) % 360) + ', 55%, 16%)');
+      g.fillStyle = grad; g.fillRect(0, 0, w, h);
+      g.fillStyle = 'rgba(255,255,255,.08)'; g.fillRect(0, 0, 14, h);
+      g.fillStyle = '#fff'; g.textBaseline = 'top';
+      const lines = wrap(g, book.title, w - 48, 'bold 24px "Hiragino Sans", "Yu Gothic", sans-serif', 6);
+      let y = 40; lines.forEach((ln) => { g.fillText(ln, 28, y); y += 32; });
+      g.fillStyle = 'rgba(255,255,255,.75)'; g.font = '15px "Hiragino Sans", "Yu Gothic", sans-serif';
+      wrap(g, book.author || '', w - 48, g.font, 2).forEach((ln, i) => g.fillText(ln, 28, h - 60 + i * 20));
+      return c;
     }
-
-    // ===== 集計 =====
-    function summarize() {
-      const byBook = {};
-      state.pledges.forEach((p) => {
-        byBook[p.bookId] = byBook[p.bookId] || { total: 0, backers: [] };
-        byBook[p.bookId].total += p.amount;
-        byBook[p.bookId].backers.push(p);
+    const phCache = new Map();
+    function placeholderUrl(book) {
+      if (!phCache.has(book.id)) phCache.set(book.id, placeholderCanvas(book).toDataURL('image/png'));
+      return phCache.get(book.id);
+    }
+    function coverImg(book, cls) {
+      const src = book.cover || placeholderUrl(book);
+      return `<img class="${cls || ''}" src="${esc(src)}" alt="" loading="lazy" data-ph="${esc(book.id)}" />`;
+    }
+    function fixBrokenCovers(root) {
+      root.querySelectorAll('img[data-ph]').forEach((img) => {
+        img.addEventListener('error', () => { const b = state.books.find((x) => x.id === img.dataset.ph); if (b && img.src !== placeholderUrl(b)) img.src = placeholderUrl(b); }, { once: true });
       });
-      const books = state.books.map((b) => {
-        const agg = byBook[b.id] || { total: 0, backers: [] };
-        agg.backers.sort((x, y) => y.amount - x.amount);
-        return Object.assign({}, b, { total: agg.total, backers: agg.backers, funded: b.price > 0 && agg.total >= b.price });
+    }
+    function wrap(g, text, maxW, font, maxLines) {
+      g.font = font; const out = []; let cur = '';
+      for (const ch of String(text)) {
+        if (g.measureText(cur + ch).width > maxW && cur) { out.push(cur); cur = ch; if (out.length === maxLines) return out; }
+        else cur += ch;
+      }
+      if (cur) out.push(cur);
+      return out.slice(0, maxLines);
+    }
+
+    // ================= 3D =================
+    let three = null; // { renderer, scene, camera, group, sprites: Map<id, sprite>, ... }
+    const COVER_H = 1.9;
+
+    function initThree() {
+      if (!window.THREE) return false;
+      let renderer;
+      try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' }); }
+      catch (e) { return false; }
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setClearColor(0x05070f, 1);
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      $('stage').appendChild(renderer.domElement);
+
+      const scene = new THREE.Scene();
+      scene.fog = new THREE.FogExp2(0x05070f, 0.028);
+      const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 200);
+      const group = new THREE.Group();
+      scene.add(group);
+
+      // 星
+      const starN = 1600, pos = new Float32Array(starN * 3);
+      for (let i = 0; i < starN; i++) {
+        const r = 26 + Math.random() * 40, t = Math.random() * Math.PI * 2, p = Math.acos(2 * Math.random() - 1);
+        pos[i * 3] = r * Math.sin(p) * Math.cos(t); pos[i * 3 + 1] = r * Math.sin(p) * Math.sin(t); pos[i * 3 + 2] = r * Math.cos(p);
+      }
+      const starGeo = new THREE.BufferGeometry(); starGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      const dotC = document.createElement('canvas'); dotC.width = dotC.height = 32;
+      const dg = dotC.getContext('2d'); const dgr = dg.createRadialGradient(16, 16, 0, 16, 16, 16);
+      dgr.addColorStop(0, 'rgba(255,255,255,1)'); dgr.addColorStop(.5, 'rgba(255,255,255,.5)'); dgr.addColorStop(1, 'rgba(255,255,255,0)');
+      dg.fillStyle = dgr; dg.fillRect(0, 0, 32, 32);
+      const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xbfd0ff, size: 0.22, sizeAttenuation: true, transparent: true, opacity: .85, map: new THREE.CanvasTexture(dotC), depthWrite: false }));
+      scene.add(stars);
+
+      // 光のにじみ（人気の本の後ろに置く）
+      const glowC = document.createElement('canvas'); glowC.width = glowC.height = 128;
+      const gg = glowC.getContext('2d'); const rg = gg.createRadialGradient(64, 64, 0, 64, 64, 64);
+      rg.addColorStop(0, 'rgba(255,216,90,.9)'); rg.addColorStop(.4, 'rgba(255,160,90,.35)'); rg.addColorStop(1, 'rgba(255,120,90,0)');
+      gg.fillStyle = rg; gg.fillRect(0, 0, 128, 128);
+      const glowTex = new THREE.CanvasTexture(glowC);
+
+      three = { renderer, scene, camera, group, stars, glowTex, sprites: new Map(), glows: new Map(), selected: null, targetQ: null,
+        vel: { x: 0, y: 0 }, lastInteract: 0, dragging: false, loader: new THREE.TextureLoader() };
+      three.loader.setCrossOrigin('anonymous');
+      resize();
+      window.addEventListener('resize', resize);
+      bindPointer(renderer.domElement);
+      requestAnimationFrame(tick);
+      return true;
+    }
+
+    function resize() {
+      if (!three) return;
+      const w = window.innerWidth, h = window.innerHeight, aspect = w / h;
+      three.renderer.setSize(w, h);
+      three.camera.aspect = aspect; three.camera.updateProjectionMatrix();
+      const radius = sphereRadius() + 1.6;
+      const vfov = THREE.MathUtils.degToRad(three.camera.fov);
+      const hfov = 2 * Math.atan(Math.tan(vfov / 2) * aspect);
+      // 球が画面からすこしはみ出すくらいに寄る（スマホで迫力が出る）
+      three.camera.position.set(0, 0, radius / Math.tan(Math.min(vfov, hfov) / 2) * (aspect < 1 ? 0.72 : 0.9));
+      three.camera.lookAt(0, 0, 0);
+    }
+
+    function sphereRadius() { return 4.6 + Math.sqrt(Math.max(1, state.books.length)) * 0.5; }
+
+    // フィボナッチ球に並べる。「読みたい」が多い本ほど中心寄りで大きい
+    function layout(animate) {
+      if (!three) return;
+      const books = state.books.slice().sort((a, b) => b.votes - a.votes || (a.created_at || '').localeCompare(b.created_at || ''));
+      const n = books.length, R = sphereRadius();
+      const maxV = Math.max(1, ...books.map((b) => b.votes));
+      const golden = Math.PI * (3 - Math.sqrt(5));
+      books.forEach((b, i) => {
+        const y = n === 1 ? 0 : 1 - (i / (n - 1)) * 2;
+        const rr = Math.sqrt(1 - y * y), th = golden * i;
+        const pull = 0.5 * (b.votes / maxV);
+        const r = R * (1 - pull);
+        const target = new THREE.Vector3(Math.cos(th) * rr * r, y * r, Math.sin(th) * rr * r);
+        const sprite = ensureSprite(b);
+        sprite.userData.target = target;
+        sprite.userData.scale = 1 + 0.35 * (b.votes / maxV) * (b.votes > 0 ? 1 : 0);
+        if (!animate || !sprite.userData.placed) { sprite.position.copy(target); sprite.userData.placed = true; }
+        let glow = three.glows.get(b.id);
+        if (b.votes > 0) {
+          if (!glow) {
+            glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: three.glowTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: .6 }));
+            three.group.add(glow); three.glows.set(b.id, glow);
+          }
+          glow.userData.size = COVER_H * (1.15 + 0.7 * b.votes / maxV);
+          glow.visible = true;
+        } else if (glow) glow.visible = false;
       });
-      books.sort((a, b) => (b.total / Math.max(b.price, 1)) - (a.total / Math.max(a.price, 1)) || b.total - a.total || a.price - b.price);
-      return books;
+      // 消えた本
+      for (const [id, sp] of three.sprites) if (!books.some((b) => b.id === id)) { three.group.remove(sp); three.sprites.delete(id); }
     }
 
-    function isClosed() {
-      const d = state.settings.deadline;
-      if (!d) return false;
-      const end = new Date(d + 'T23:59:59+09:00');
-      return !isNaN(end) && Date.now() > end.getTime();
+    function ensureSprite(book) {
+      let sp = three.sprites.get(book.id);
+      if (sp) { sp.userData.book = book; return sp; }
+      const tex = new THREE.CanvasTexture(placeholderCanvas(book)); tex.encoding = THREE.sRGBEncoding;
+      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+      sp = new THREE.Sprite(mat);
+      sp.scale.set(COVER_H * 0.7, COVER_H, 1);
+      sp.userData = { book, scale: 1, cur: 0.001, placed: false, aspect: 0.7 };
+      three.group.add(sp); three.sprites.set(book.id, sp);
+      if (book.cover) {
+        three.loader.load(book.cover, (t) => {
+          t.encoding = THREE.sRGBEncoding; t.minFilter = THREE.LinearFilter;
+          const img = t.image; if (img && img.width && img.height) sp.userData.aspect = Math.min(0.85, Math.max(0.6, img.width / img.height));
+          sp.material.map = t; sp.material.needsUpdate = true; book.coverOk = true;
+        }, undefined, () => { /* 表紙が取れなければプレースホルダーのまま */ });
+      }
+      return sp;
     }
 
-    // 定価合計が予算内で、出資額合計が最大になる組み合わせを上位3つ
-    function bestCombos(books, budget) {
-      const items = books.filter((b) => b.total > 0 && b.price > 0 && b.price <= budget)
-        .sort((a, b) => b.total - a.total).slice(0, 18);
-      const results = [];
-      const pick = [];
-      function walk(i, price, score) {
-        if (i === items.length) {
-          if (pick.length) results.push({ items: pick.slice(), price, score });
-          return;
+    function tick(now) {
+      requestAnimationFrame(tick);
+      if (!three || document.hidden) return;
+      const g = three.group;
+      if (three.targetQ) {
+        g.quaternion.slerp(three.targetQ, 0.08);
+        if (g.quaternion.angleTo(three.targetQ) < 0.01) three.targetQ = null;
+      } else if (!three.dragging) {
+        const idle = now - three.lastInteract > 2500;
+        const vx = three.vel.x, vy = three.vel.y;
+        rotateBy(vx + (idle ? 0.0016 : 0), vy);
+        three.vel.x *= 0.94; three.vel.y *= 0.94;
+      }
+      three.stars.rotation.y += 0.0002;
+      for (const sp of three.sprites.values()) {
+        const u = sp.userData;
+        if (u.target) sp.position.lerp(u.target, 0.06);
+        const want = u.scale * (three.selected === sp ? 1.7 : 1);
+        u.cur += (want - u.cur) * 0.12;
+        sp.scale.set(COVER_H * u.aspect * u.cur, COVER_H * u.cur, 1);
+        const glow = three.glows.get(u.book.id);
+        if (glow && glow.visible) { glow.position.copy(sp.position); const s = glow.userData.size * u.cur; glow.scale.set(s, s, 1); }
+      }
+      three.renderer.render(three.scene, three.camera);
+    }
+
+    const _qx = new THREE.Quaternion(), _qy = new THREE.Quaternion();
+    function rotateBy(dy, dx) {
+      // dy: 横ドラッグ → 世界Y軸回り、dx: 縦ドラッグ → 世界X軸回り
+      _qy.setFromAxisAngle(new THREE.Vector3(0, 1, 0), dy);
+      _qx.setFromAxisAngle(new THREE.Vector3(1, 0, 0), dx);
+      three.group.quaternion.premultiply(_qy).premultiply(_qx);
+    }
+
+    function bindPointer(el) {
+      let down = null, moved = 0, lastX = 0, lastY = 0, lastT = 0, pinch = null;
+      const pts = new Map();
+      el.addEventListener('pointerdown', (e) => {
+        pts.set(e.pointerId, e);
+        el.setPointerCapture(e.pointerId);
+        if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); down = null; return; }
+        down = { x: e.clientX, y: e.clientY, t: performance.now() }; moved = 0; lastX = e.clientX; lastY = e.clientY; lastT = performance.now();
+        three.dragging = true; three.targetQ = null; three.vel.x = three.vel.y = 0; three.lastInteract = performance.now();
+      });
+      el.addEventListener('pointermove', (e) => {
+        if (!pts.has(e.pointerId)) return;
+        pts.set(e.pointerId, e);
+        if (pts.size === 2 && pinch) {
+          const [a, b] = [...pts.values()]; const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+          zoom((pinch - d) * 0.01); pinch = d; return;
         }
-        if (price + items[i].price <= budget) {
-          pick.push(items[i]);
-          walk(i + 1, price + items[i].price, score + items[i].total);
-          pick.pop();
-        }
-        walk(i + 1, price, score);
-      }
-      walk(0, 0, 0);
-      results.sort((a, b) => b.score - a.score || b.price - a.price);
-      return results.slice(0, 3);
-    }
-
-    // ===== 描画 =====
-    function render() {
-      const s = state.settings;
-      const books = summarize();
-      const name = myName();
-      const used = state.pledges.filter((p) => p.name === name).reduce((a, p) => a + p.amount, 0);
-      const remaining = Math.max(0, s.coins - used);
-      const closed = isClosed();
-
-      $('mode').className = 'mode' + (apiUrl ? ' live' : '');
-      $('mode').textContent = apiUrl
-        ? '班の共有データにつながっています。出資や登録は全員に見えます。'
-        : 'お試しモード：この端末のブラウザにだけ保存されます。班で共有するには README の手順で Apps Script のURLを設定してください。';
-
-      $('budgetLabel').textContent = s.budget.toLocaleString('ja-JP');
-      $('fundedTotal').textContent = yen(books.filter((b) => b.funded).reduce((a, b) => a + b.price, 0));
-      $('pledgeTotal').textContent = yen(state.pledges.reduce((a, p) => a + p.amount, 0));
-      $('bookCount').textContent = books.length + ' 冊';
-      $('memberCount').textContent = new Set(state.pledges.map((p) => p.name)).size + ' 人';
-      $('myCoins').textContent = yen(remaining);
-      $('deadline').textContent = s.deadline
-        ? (closed ? '締め切りました（' + s.deadline + '）。出資は受け付けていません。' : '締め切り：' + s.deadline + ' 23:59')
-        : '締め切りは未設定です。';
-
-      const list = $('books');
-      if (!books.length) {
-        list.innerHTML = '<div class="empty">まだ候補がありません。下のフォームから最初の一冊を。</div>';
-      } else {
-        list.innerHTML = books.map((b, i) => {
-          const pct = b.price ? Math.min(100, Math.round(b.total / b.price * 100)) : 0;
-          const mine = b.backers.find((p) => p.name === name);
-          const canPledge = !!name && !closed && remaining > 0 && !busy;
-          const quick = [500, 1000].filter((v) => v <= remaining);
-          const buttons = quick.map((v) => `<button class="btn small" type="button" data-pledge="${b.id}" data-amount="${v}" ${canPledge ? '' : 'disabled'}>+${v.toLocaleString('ja-JP')}</button>`).join('');
-          const allIn = remaining > 0 ? `<button class="btn ghost small" type="button" data-pledge="${b.id}" data-amount="${remaining}" ${canPledge ? '' : 'disabled'}>残り全部（${remaining.toLocaleString('ja-JP')}）</button>` : '';
-          const withdraw = mine ? `<button class="btn danger small" type="button" data-withdraw="${b.id}" ${closed || busy ? 'disabled' : ''}>自分の出資を取り消す</button>` : '';
-          return `
-            <article class="book${b.funded ? ' funded' : ''}">
-              <span class="rank">${i + 1}位</span>
-              ${b.funded ? '<span class="badge">確定ライン到達</span>' : ''}
-              <h3>${esc(b.title)}</h3>
-              <p class="meta">${esc(b.author || '著者未記入')}｜定価 ${yen(b.price)}｜提案：${esc(b.proposer || '不明')}${b.url ? `｜<a href="${esc(b.url)}" target="_blank" rel="noopener">リンク</a>` : ''}</p>
-              <div class="obi">${esc(b.obi)}<small>── ${esc(b.proposer || '提案者')}の帯</small></div>
-              <div class="bar"><i style="width:${pct}%"></i></div>
-              <p class="amounts"><span>出資 <b>${yen(b.total)}</b></span><span>${pct}%${b.funded ? '' : '｜あと ' + yen(b.price - b.total)}</span></p>
-              <p class="backers">${b.backers.length ? b.backers.map((p) => `<span class="${p.name === name ? 'me' : ''}">${esc(p.name)} ${p.amount.toLocaleString('ja-JP')}</span>`).join('') : 'まだ出資なし。最初の出資者になろう。'}</p>
-              <div class="actions">${buttons}${allIn}${withdraw}</div>
-            </article>`;
-        }).join('');
-      }
-
-      const combos = bestCombos(books, s.budget);
-      $('combos').innerHTML = combos.length
-        ? combos.map((c, i) => `
-            <div class="combo">
-              <b>案${i + 1}｜定価合計 ${yen(c.price)}（余り ${yen(s.budget - c.price)}）</b>
-              <ul>${c.items.map((b) => `<li>${esc(b.title)}（${yen(b.price)}／出資 ${yen(b.total)}）</li>`).join('')}</ul>
-              <p class="tail">出資合計 ${yen(c.score)}</p>
-            </div>`).join('')
-        : '<div class="empty">出資のある本が増えると、ここに組み合わせが出ます。</div>';
-
-      $('submit').disabled = busy || closed;
-      $('reload').disabled = busy;
-    }
-
-    // ===== 操作 =====
-    $('books').addEventListener('click', async (ev) => {
-      const btn = ev.target.closest('button');
-      if (!btn) return;
-      const name = myName();
-      if (!name) { toast('先に名前を入れてください', true); $('name').focus(); return; }
-      if (btn.dataset.pledge) {
-        const amount = Number(btn.dataset.amount);
-        if (await send({ action: 'pledge', bookId: btn.dataset.pledge, name, amount })) toast(amount.toLocaleString('ja-JP') + ' 円を出資しました');
-      } else if (btn.dataset.withdraw) {
-        if (await send({ action: 'withdraw', bookId: btn.dataset.withdraw, name })) toast('出資を取り消しました');
-      }
-    });
-
-    $('obi').addEventListener('input', () => {
-      const n = $('obi').value.length;
-      const max = state.settings.maxObi || 100;
-      $('obiCount').textContent = n + ' / ' + max;
-      $('obiCount').classList.toggle('over', n > max);
-    });
-
-    $('form').addEventListener('submit', async (ev) => {
-      ev.preventDefault();
-      const name = myName();
-      if (!name) { toast('先に名前を入れてください', true); $('name').focus(); return; }
-      const obi = $('obi').value.trim();
-      if (obi.length > (state.settings.maxObi || 100)) { toast('帯文は100字までです', true); return; }
-      const body = {
-        action: 'addBook', name,
-        title: $('title').value.trim(), author: $('author').value.trim(),
-        price: Number($('price').value), obi, url: $('url').value.trim()
+        if (!down) return;
+        const dx = e.clientX - lastX, dy = e.clientY - lastY, t = performance.now();
+        moved += Math.abs(dx) + Math.abs(dy);
+        const k = 0.0055;
+        rotateBy(dx * k, dy * k);
+        const dt = Math.max(8, t - lastT);
+        three.vel.x = dx * k * (16 / dt) * 0.9; three.vel.y = dy * k * (16 / dt) * 0.9;
+        lastX = e.clientX; lastY = e.clientY; lastT = t; three.lastInteract = t;
+      });
+      const up = (e) => {
+        pts.delete(e.pointerId);
+        if (pts.size < 2) pinch = null;
+        if (pts.size === 0) three.dragging = false;
+        if (down && moved < 8 && performance.now() - down.t < 500) pick(e.clientX, e.clientY);
+        down = null; three.lastInteract = performance.now();
       };
-      if (await send(body)) {
-        $('form').reset();
-        $('obiCount').textContent = '0 / ' + (state.settings.maxObi || 100);
-        toast('候補に追加しました。帯文で口説こう');
-        $('books').scrollIntoView({ behavior: 'smooth' });
+      el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+      el.addEventListener('wheel', (e) => { e.preventDefault(); zoom(e.deltaY * 0.004); }, { passive: false });
+    }
+
+    function zoom(d) {
+      const c = three.camera; const z = THREE.MathUtils.clamp(c.position.z + d, sphereRadius() * 0.6, sphereRadius() * 4);
+      c.position.z = z; three.lastInteract = performance.now();
+    }
+
+    const raycaster = new THREE.Raycaster();
+    function pick(x, y) {
+      const v = new THREE.Vector2((x / window.innerWidth) * 2 - 1, -(y / window.innerHeight) * 2 + 1);
+      raycaster.setFromCamera(v, three.camera);
+      const hits = raycaster.intersectObjects([...three.sprites.values()], false);
+      if (hits.length) select(hits[0].object.userData.book.id);
+      else closeSheet('detail');
+    }
+
+    function select(id) {
+      const sp = three && three.sprites.get(id);
+      if (three) {
+        three.selected = sp || null;
+        if (sp) {
+          // 選んだ本が正面（カメラ側）に来るように回す
+          const dir = sp.position.clone().normalize();
+          // 詳細シートに隠れないよう、画面の上寄りに来る向きへ
+          const q = new THREE.Quaternion().setFromUnitVectors(dir, new THREE.Vector3(0, 0.55, 1).normalize());
+          three.targetQ = q;
+          three.vel.x = three.vel.y = 0; three.lastInteract = performance.now() + 4000;
+        }
       }
+      renderDetail(id);
+      openSheet('detail');
+      hideHint();
+    }
+
+    // ================= UI =================
+    function myVotes() { return state.books.filter((b) => myName && b.voters.includes(myName)); }
+    function renderTop() {
+      const hearts = state.settings.hearts, used = myVotes().length;
+      $('count').textContent = state.books.length + '冊が浮かんでいます' + (live ? '' : '（お試し：この端末だけ）');
+      $('heartsIcons').innerHTML = Array.from({ length: hearts }, (_, i) => '<span class="' + (i < used ? '' : 'off') + '">♥</span>').join('');
+      $('heartsName').textContent = myName ? myName : '読みたい';
+    }
+
+    function renderDetail(id) {
+      const b = state.books.find((x) => x.id === id); if (!b) return;
+      const mine = myName && b.voters.includes(myName);
+      $('detailBody').innerHTML = `
+        <div class="detail">
+          ${coverImg(b)}
+          <div>
+            <h2>${esc(b.title)}</h2>
+            <p class="meta">${esc(b.author || '著者不明')}${b.publisher ? '｜' + esc(b.publisher) : ''}</p>
+            <p class="price">${yen(b.price)}</p>
+          </div>
+        </div>
+        <div class="obi">${esc(b.obi || '')}<small>── ${esc(b.proposer || '')}</small></div>
+        <p class="voters">${b.voters.length ? '読みたい：' + b.voters.map((n) => `<span>${esc(n)}</span>`).join('') : 'まだ誰も「読みたい」していません。最初の一人になる？'}</p>
+        <div class="actions">
+          <button class="btn heart ${mine ? 'on' : ''}" type="button" data-vote="${esc(b.id)}">${mine ? '♥ 読みたい済み（外す）' : '♥ 読みたい'}</button>
+          ${b.url ? `<a href="${esc(b.url)}" target="_blank" rel="noopener">本の情報を見る ↗</a>` : (b.isbn ? `<a href="https://ndlsearch.ndl.go.jp/books?isbn=${esc(b.isbn)}" target="_blank" rel="noopener">国会図書館で見る ↗</a>` : '')}
+        </div>`;
+      fixBrokenCovers($('detailBody'));
+    }
+
+    $('detailBody').addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-vote]'); if (!btn) return;
+      const id = btn.dataset.vote;
+      const b = state.books.find((x) => x.id === id);
+      if (!myName) { askName(() => toggleVote(id)); return; }
+      await toggleVote(id);
     });
 
-    async function reload(silent) {
+    async function toggleVote(id) {
+      const b = state.books.find((x) => x.id === id);
+      const on = !b.voters.includes(myName);
+      if (await send({ action: on ? 'vote' : 'unvote', bookId: id, name: myName })) {
+        toast(on ? '♥ 読みたい、に入れました' : '外しました');
+        afterChange(); renderDetail(id);
+      }
+    }
+
+    function afterChange() { renderTop(); layout(true); renderGrid(); }
+
+    function askName(then) {
+      $('nameInput').value = myName; $('nameModal').classList.add('open'); setTimeout(() => $('nameInput').focus(), 50);
+      $('nameOk').onclick = () => {
+        const n = $('nameInput').value.replace(/\s+/g, ' ').trim();
+        if (!n) { toast('名前を入れてください', true); return; }
+        myName = n; try { localStorage.setItem(NAME_KEY, n); } catch (e) { /* 保存不可 */ }
+        $('nameModal').classList.remove('open'); renderTop(); if (then) then();
+      };
+      $('nameCancel').onclick = () => $('nameModal').classList.remove('open');
+    }
+    $('heartsBtn').addEventListener('click', () => {
+      const mine = myVotes();
+      if (!myName) { askName(); return; }
+      if (!mine.length) { toast(myName + ' さんの「読みたい」はまだありません'); return; }
+      select(mine[0].id);
+    });
+
+    function openSheet(id) { $(id).classList.add('open'); }
+    function closeSheet(id) { $(id).classList.remove('open'); if (id === 'detail' && three) three.selected = null; }
+    document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => closeSheet(b.dataset.close)));
+
+    function hideHint() { $('hint').classList.add('gone'); try { localStorage.setItem(HINT_KEY, '1'); } catch (e) { /* */ } }
+    try { if (localStorage.getItem(HINT_KEY)) $('hint').classList.add('gone'); } catch (e) { /* */ }
+    setTimeout(hideHint, 9000);
+
+    // ---- 本を足す ----
+    let picked = null;
+    $('addBtn').addEventListener('click', () => { closeSheet('detail'); $('fName').value = myName; openSheet('add'); setTimeout(() => $('q').focus(), 300); });
+    $('q').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); search(); } });
+    $('searchBtn').addEventListener('click', search);
+    $('manualBtn').addEventListener('click', () => usePick(null));
+    $('manualBtn2').addEventListener('click', () => usePick(null));
+    $('fObi').addEventListener('input', () => {
+      const n = $('fObi').value.length, max = state.settings.maxObi;
+      $('obiCount').textContent = n + ' / ' + max; $('obiCount').classList.toggle('over', n > max);
+    });
+
+    async function search() {
+      const q = $('q').value.trim(); if (!q) return;
+      $('cands').innerHTML = '<p class="note">探しています…</p>';
+      let cands = [];
       try {
-        await fetchState();
-        render();
-        if (!silent) toast('更新しました');
-      } catch (err) {
-        $('mode').className = 'mode';
-        $('mode').textContent = 'データを読み込めませんでした。Apps Script のURLと公開設定を確認してください。';
-        if (!silent) toast('読み込めませんでした', true);
-      }
+        if (live) {
+          const res = await fetch(apiUrl + (apiUrl.includes('?') ? '&' : '?') + 'lookup=' + encodeURIComponent(q));
+          cands = (await res.json()).candidates || [];
+        } else {
+          cands = await lookupDirect(q);
+        }
+      } catch (e) { cands = []; }
+      if (!cands.length) { $('cands').innerHTML = '<p class="note">見つかりませんでした。下の「手で入れる」からどうぞ。</p>'; return; }
+      $('cands').innerHTML = cands.map((c, i) => `
+        <button class="cand" type="button" data-cand="${i}">
+          ${c.cover ? `<img src="${esc(c.cover)}" alt="" />` : '<div class="noimg"></div>'}
+          <span><b>${esc(c.title)}</b><small>${esc(c.author || '')}${c.publisher ? '｜' + esc(c.publisher) : ''}${c.price ? '｜' + yen(c.price) : ''}</small></span>
+        </button>`).join('');
+      $('cands').querySelectorAll('[data-cand]').forEach((el) => el.addEventListener('click', () => usePick(cands[Number(el.dataset.cand)])));
     }
-    $('reload').addEventListener('click', () => reload(false));
-    document.addEventListener('visibilitychange', () => { if (!document.hidden && apiUrl) reload(true); });
-    if (apiUrl) setInterval(() => reload(true), 60000);
 
-    render();
-    reload(true);
+    // お試しモード用：ブラウザから直接 Google Books / openBD を引く
+    async function lookupDirect(q) {
+      const digits = q.replace(/[^0-9X]/g, '');
+      const out = [];
+      if (digits.length === 13 || digits.length === 10) {
+        try {
+          const r = await fetch('https://api.openbd.jp/v1/get?isbn=' + digits); const d = await r.json();
+          if (d && d[0] && d[0].summary) { const s = d[0].summary; out.push({ title: s.title, author: s.author, publisher: s.publisher, isbn: s.isbn, cover: s.cover || '', price: null }); }
+        } catch (e) { /* 取れなければ次へ */ }
+      }
+      try {
+        const r = await fetch('https://www.googleapis.com/books/v1/volumes?' + new URLSearchParams({ q, langRestrict: 'ja', maxResults: 6, printType: 'books' }));
+        const d = await r.json();
+        (d.items || []).forEach((it) => {
+          const v = it.volumeInfo || {}; const ids = v.industryIdentifiers || [];
+          const isbn = (ids.find((x) => x.type === 'ISBN_13') || {}).identifier || '';
+          const thumb = ((v.imageLinks || {}).thumbnail || '').replace(/^http:/, 'https:');
+          out.push({ title: [v.title, v.subtitle].filter(Boolean).join(' '), author: (v.authors || []).join('・'), publisher: v.publisher || '',
+            isbn, cover: thumb, price: ((it.saleInfo || {}).listPrice || {}).amount || null });
+        });
+      } catch (e) { /* 取れなければそのまま */ }
+      return out;
+    }
+
+    function usePick(c) {
+      picked = c;
+      $('cands').innerHTML = ''; $('manualRow').style.display = 'none';
+      $('addForm').style.display = 'block';
+      $('picked').innerHTML = c
+        ? `${c.cover ? `<img src="${esc(c.cover)}" alt="" />` : '<div class="noimg"></div>'}<div><b>${esc(c.title)}</b><br><small class="note">${esc(c.author || '')}${c.publisher ? '｜' + esc(c.publisher) : ''}</small></div>`
+        : '<div class="noimg"></div><div><small class="note">表紙はあとから自動で探します（ISBNが分かれば確実）</small></div>';
+      $('fTitle').value = c ? c.title : $('q').value.trim();
+      $('fAuthor').value = c ? (c.author || '') : '';
+      $('fPrice').value = c && c.price ? c.price : '';
+      $('fName').value = myName;
+      setTimeout(() => $('fObi').focus(), 100);
+    }
+
+    $('addForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const obi = $('fObi').value.trim();
+      if (obi.length > state.settings.maxObi) { toast('ひとことは' + state.settings.maxObi + '字までです', true); return; }
+      const name = $('fName').value.replace(/\s+/g, ' ').trim();
+      if (!name) { toast('名前を入れてください', true); return; }
+      myName = name; try { localStorage.setItem(NAME_KEY, name); } catch (err) { /* */ }
+      const body = { action: 'addBook', name, title: $('fTitle').value.trim(), author: $('fAuthor').value.trim(),
+        publisher: picked ? (picked.publisher || '') : '', price: Number($('fPrice').value) || null,
+        isbn: picked ? (picked.isbn || '') : '', cover: picked ? (picked.cover || '') : '', obi };
+      $('addSubmit').disabled = true;
+      const ok = await send(body);
+      $('addSubmit').disabled = false;
+      if (!ok) return;
+      $('addForm').reset(); $('addForm').style.display = 'none'; $('manualRow').style.display = ''; $('q').value = ''; picked = null;
+      closeSheet('add');
+      afterChange();
+      const added = state.books.find((b) => b.title === body.title);
+      toast('銀河に浮かべました');
+      if (added) setTimeout(() => select(added.id), 400);
+    });
+
+    // ---- 2D 表示 ----
+    let mode2d = false;
+    function renderGrid() {
+      if (!mode2d) return;
+      const books = state.books.slice().sort((a, b) => b.votes - a.votes);
+      $('gridInner').innerHTML = books.map((b) => `
+        <button type="button" data-id="${esc(b.id)}">
+          ${coverImg(b)}
+          <b>${esc(b.title)}</b>${b.votes ? `<small style="color:var(--heart)">♥${b.votes}</small>` : ''}
+        </button>`).join('');
+      fixBrokenCovers($('gridInner'));
+      $('gridInner').querySelectorAll('[data-id]').forEach((el) => el.addEventListener('click', () => { renderDetail(el.dataset.id); openSheet('detail'); }));
+    }
+    function setMode(is2d) {
+      mode2d = is2d;
+      $('grid').style.display = is2d ? 'block' : 'none';
+      $('stage').style.display = is2d ? 'none' : 'block';
+      $('modeBtn').textContent = is2d ? '3D表示' : '2D表示';
+      renderGrid();
+    }
+    $('modeBtn').addEventListener('click', () => setMode(!mode2d));
+
+    // ================= 起動 =================
+    (async function main() {
+      await fetchState();
+      $('loading').style.display = 'none';
+      renderTop();
+      const ok = initThree();
+      if (ok) { layout(false); $('modeBtn').style.display = ''; }
+      else { $('modeBtn').style.display = 'none'; setMode(true); }
+      if (live) setInterval(async () => {
+        if (document.hidden || $('add').classList.contains('open')) return;
+        const before = JSON.stringify(state.books.map((b) => [b.id, b.votes, b.cover]));
+        await fetchState();
+        if (JSON.stringify(state.books.map((b) => [b.id, b.votes, b.cover])) !== before) afterChange();
+      }, 45000);
+    })();
   </script>
 </body>
 </html>
