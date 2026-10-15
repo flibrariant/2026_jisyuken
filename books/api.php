@@ -58,10 +58,19 @@ try {
         elseif ($action === 'unvote') vote($db, $body, false);
         elseif ($action === 'addBook') addBook($db, $body);
         else throw new RuntimeException('不明な操作です');
+        json(state($db));
     } else {
-        resolveSome($db);
+        // 先に応答を返してから、裏で表紙・定価の補完をする（外部 API が遅くても画面を待たせない）。
+        // PHP-FPM 以外（CLI など）では fastcgi_finish_request が無いので、その場合は先に補完する
+        if (function_exists('fastcgi_finish_request')) {
+            json(state($db));
+            fastcgi_finish_request();
+            resolveSome($db);
+        } else {
+            resolveSome($db);
+            json(state($db));
+        }
     }
-    json(state($db));
 } catch (Throwable $e) {
     http_response_code(400);
     json(['error' => $e->getMessage()]);
@@ -164,18 +173,93 @@ function addBook(PDO $db, array $body): void {
 
 // ---------------------------------------------------------------- 書誌の補完
 
-function httpGet(string $url, int $timeout = 6): ?string {
+function httpGet(string $url, int $timeout = 6, array $headers = []): ?string {
     $ch = curl_init($url);
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_MAXREDIRS => 3,
         CURLOPT_TIMEOUT => $timeout, CURLOPT_CONNECTTIMEOUT => 4,
-        CURLOPT_USERAGENT => 'jisyuken-book-galaxy/1.0',
+        CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; jisyuken-book-galaxy/1.0)',
+        CURLOPT_HTTPHEADER => $headers,
     ]);
     $body = curl_exec($ch);
     $code = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
     curl_close($ch);
     $GLOBALS['lastHttpCode'] = $code; // 429（回数制限）かどうかを呼び出し側で見るため
     return ($body !== false && $code >= 200 && $code < 300) ? $body : null;
+}
+
+/** 書名の照合用に正規化（巻の表記「上」「（下）」「第1巻」などと、空白・記号を落として小文字化） */
+function normTitle(string $s): string {
+    $s = mb_strtolower($s);
+    $s = preg_replace('/(^|[\s　：:])(上|中|下|上巻|中巻|下巻|第\d+巻)(?=[\s　：:]|$)/u', '$1', $s) ?? $s;
+    $s = preg_replace('/[（(]\s*(上|中|下)\s*[）)]/u', '', $s) ?? $s;
+    $s = preg_replace('/[\s\p{P}\p{S}]+/u', '', $s) ?? '';
+    return $s;
+}
+
+/** ISBN-10 を ISBN-13 に（NDL は古い本を 10 桁で返すことがある）。13 桁ならそのまま、変換できなければ空 */
+function isbn13(string $raw): string {
+    $d = preg_replace('/[^0-9X]/i', '', strtoupper($raw)) ?? '';
+    if (strlen($d) === 13) return $d;
+    if (strlen($d) !== 10) return '';
+    $core = '978' . substr($d, 0, 9);
+    $sum = 0;
+    for ($i = 0; $i < 12; $i++) $sum += (int)$core[$i] * ($i % 2 === 0 ? 1 : 3);
+    return $core . ((10 - $sum % 10) % 10);
+}
+
+/**
+ * 候補の書名が元の書名と同じ本とみなせるか。
+ * 先頭が一致することを条件にする（「…コモン・センスの哲学と思想史」が「センスの哲学」に化けないように、途中一致は不可）。
+ */
+function titleMatches(string $want, string $got): bool {
+    $a = normTitle($want); $b = normTitle($got);
+    if ($a === '' || $b === '') return false;
+    if (strpos($a, $b) === 0 || strpos($b, $a) === 0) return true; // 先頭一致（PHP 7.4 でも動く書き方）
+    $n = min(8, mb_strlen($a), mb_strlen($b));
+    return $n >= 4 && mb_substr($a, 0, $n) === mb_substr($b, 0, $n);
+}
+
+/**
+ * 候補の著者が元の著者と同じ人とみなせるか（姓の2文字が含まれていればよい）。
+ * 元の著者が空、または「○○編」「○○監修」のように出版社・編者名のときは照合しない
+ */
+function authorMatches(string $want, string $got): bool {
+    if (preg_match('/(編|編著|監修|編集部?)$/u', trim($want))) return true;
+    $w = preg_replace('/[\s,、・]+/u', '', mb_substr(preg_split('/[・、,]/u', $want)[0] ?? '', 0, 20)) ?? '';
+    if ($w === '') return true;
+    $g = preg_replace('/[\s,、・]+/u', '', $got) ?? '';
+    if ($g === '') return true; // 候補に著者が無ければ判定しない
+    // 候補側がローマ字だけ（NDL は外国人著者を "Harari, Yuval Noah" のように持つ）なら照合できないので通す
+    if (!preg_match('/[\p{Hiragana}\p{Katakana}\p{Han}]/u', $g)) return true;
+    return mb_strpos($g, mb_substr($w, 0, 2)) !== false;
+}
+
+/** 国立国会図書館サーチ（OpenSearch）: 書名（と著者）→ 候補（title, author, publisher, isbn, price）。日本の本はここが一番確実 */
+function ndlSearch(string $title, string $author = '', int $max = 3): array {
+    $title = trim(mb_substr($title, 0, 60));
+    if ($title === '') return [];
+    $params = ['title' => $title, 'cnt' => $max, 'mediatype' => 'books'];
+    if ($author !== '') $params['creator'] = mb_substr($author, 0, 20);
+    $raw = httpGet('https://ndlsearch.ndl.go.jp/api/opensearch?' . http_build_query($params), 15); // NDL は遅いときがある
+    if ($raw === null || !preg_match_all('#<item>(.*?)</item>#s', $raw, $m)) return [];
+    $out = [];
+    foreach ($m[1] as $xml) {
+        $get = function (string $re) use ($xml): string {
+            return preg_match($re, $xml, $mm) ? trim(html_entity_decode($mm[1], ENT_QUOTES | ENT_XML1, 'UTF-8')) : '';
+        };
+        $t = $get('#<dc:title>([^<]+)#');
+        $isbn = isbn13($get('#<dc:identifier[^>]*dcndl:ISBN[^>]*>([^<]+)#'));
+        // 例: "三宅, 香帆, 1994-" → 生没年を落とし、姓名をつなぐ
+        $creator = preg_replace('/,\s*\d{4}-?(\d{4})?\s*$/u', '', $get('#<dc:creator>([^<]+)#'));
+        $creator = preg_replace('/\s*,\s*/u', '', $creator ?? '');
+        $publisher = $get('#<dc:publisher>([^<]+)#');
+        $priceRaw = $get('#<dcndl:price>([^<]+)#'); // 例: "1000円" (本体価格) → 税込に
+        $price = preg_match('/(\d[\d,]*)/', $priceRaw, $pm) ? (int)round((int)str_replace(',', '', $pm[1]) * 1.1) : null;
+        if ($t === '' || strlen($isbn) !== 13) continue;
+        $out[] = ['title' => $t, 'author' => $creator, 'publisher' => $publisher, 'isbn' => $isbn, 'cover' => '', 'price' => $price, 'date' => $get('#<dcterms:issued>([^<]+)#')];
+    }
+    return $out;
 }
 
 /** openBD: ISBN → 書誌（title, author, publisher, price, cover） */
@@ -234,6 +318,12 @@ function lookup(string $q): array {
         $b = openbd($digits);
         if ($b) $cands[] = $b;
     }
+    // 日本の本は NDL が確実なので先に出す（定価は openBD で補う）
+    foreach (ndlSearch($q) as $n) {
+        $b = openbd($n['isbn']);
+        if ($b) { if ($n['price'] === null) $n['price'] = $b['price']; if ($b['cover'] !== '') $n['cover'] = $b['cover']; }
+        $cands[] = $n;
+    }
     foreach (googleBooks($q) as $g) {
         if ($g['isbn'] !== '') {
             $b = openbd($g['isbn']);
@@ -249,30 +339,43 @@ function lookup(string $q): array {
     return $cands;
 }
 
-/** 表紙や定価が欠けている本を、少しずつ補完する（1リクエストに数冊まで、各本3回まで試す） */
+/** 表紙や定価が欠けている本を、少しずつ補完する（1リクエストに数冊まで、各本5回まで試す。NDL が遅くて失敗することがあるため多め） */
 function resolveSome(PDO $db): void {
     $rows = $db->query('SELECT id,title,author,isbn,cover_url,price FROM books
-        WHERE (cover_url = "" OR price IS NULL OR isbn = "") AND resolve_tries < 3 ORDER BY resolve_tries, created_at LIMIT ' . RESOLVE_PER_REQUEST)->fetchAll(PDO::FETCH_ASSOC);
+        WHERE (cover_url = "" OR price IS NULL OR isbn = "") AND resolve_tries < 5 ORDER BY resolve_tries, created_at LIMIT ' . RESOLVE_PER_REQUEST)->fetchAll(PDO::FETCH_ASSOC);
     foreach ($rows as $r) {
         $db->prepare('UPDATE books SET resolve_tries = resolve_tries + 1 WHERE id = ?')->execute([$r['id']]);
         $isbn = $r['isbn'];
         $cover = $r['cover_url'];
         $price = $r['price'];
         if ($isbn === '') {
-            // intitle:/inauthor: 付きだと日本語の本はほぼ空振りするので、「書名 著者」の素直な語句で探す
             $author = $r['author'] !== '' ? mb_substr(preg_split('/[・、,]/u', $r['author'])[0], 0, 20) : '';
-            $q = mb_substr($r['title'], 0, 40) . ($author !== '' ? ' ' . $author : '');
-            // 海外版（翻訳書など）が先に出ることがあるので、日本の ISBN（9784…）を優先する
-            $cands = googleBooks($q, 5);
-            usort($cands, fn($a, $b) => (int)(strpos($b['isbn'], '9784') === 0) - (int)(strpos($a['isbn'], '9784') === 0));
-            foreach ($cands as $g) {
-                if ($g['isbn'] !== '') { $isbn = $g['isbn']; if ($cover === '') $cover = $g['cover']; if ($price === null) $price = $g['price']; break; }
-                if ($cover === '' && $g['cover'] !== '') $cover = $g['cover'];
+            // 1) NDL: 書名（＋著者）で探し、書名が一致するものだけ採用。
+            //    見つからなければ副題を落とした書名（最初の空白まで）でも試す
+            $main = preg_split('/[\s　：:]/u', $r['title'])[0] ?? '';
+            $titles = array_unique(array_filter([$r['title'], mb_strlen($main) >= 4 ? $main : '']));
+            $hits = [];
+            foreach ($titles as $t) {
+                $hits = array_filter(ndlSearch($t, $author, 5), fn($n) => titleMatches($r['title'], $n['title']));
+                // 著者付きで見つからなければ書名だけで探すが、著者が食い違う候補は採らない
+                if (!$hits && $author !== '') $hits = array_filter(ndlSearch($t, '', 5), fn($n) => titleMatches($r['title'], $n['title']) && authorMatches($r['author'], $n['author']));
+                if ($hits) break;
             }
-            // Google の回数制限で失敗したときは、試行回数に数えない（後でやり直せるように）
-            if (($GLOBALS['lastHttpCode'] ?? 0) === 429) {
-                $db->prepare('UPDATE books SET resolve_tries = resolve_tries - 1 WHERE id = ?')->execute([$r['id']]);
-                continue;
+            foreach ($hits as $n) { $isbn = $n['isbn']; if ($price === null) $price = $n['price']; break; }
+            // 2) Google: NDL で見つからなければ「書名 著者」で探す。書名一致のものだけ、日本の ISBN（9784…）を優先
+            if ($isbn === '') {
+                $q = mb_substr($r['title'], 0, 40) . ($author !== '' ? ' ' . $author : '');
+                $cands = array_filter(googleBooks($q, 5), fn($g) => titleMatches($r['title'], $g['title']) && authorMatches($r['author'], $g['author']));
+                usort($cands, fn($a, $b) => (int)(strpos($b['isbn'], '9784') === 0) - (int)(strpos($a['isbn'], '9784') === 0));
+                foreach ($cands as $g) {
+                    if ($g['isbn'] !== '') { $isbn = $g['isbn']; if ($cover === '') $cover = $g['cover']; if ($price === null) $price = $g['price']; break; }
+                    if ($cover === '' && $g['cover'] !== '') $cover = $g['cover'];
+                }
+                // Google の回数制限で失敗したときは、試行回数に数えない（後でやり直せるように）
+                if (($GLOBALS['lastHttpCode'] ?? 0) === 429) {
+                    $db->prepare('UPDATE books SET resolve_tries = resolve_tries - 1 WHERE id = ?')->execute([$r['id']]);
+                    continue;
+                }
             }
         }
         if ($isbn !== '') {
@@ -281,7 +384,7 @@ function resolveSome(PDO $db): void {
                 if ($b['cover'] !== '') $cover = $b['cover'];
                 if ($price === null && $b['price'] !== null) $price = $b['price'];
             }
-            // openBD に表紙が無ければ、ISBN で Google Books を引いてサムネイルをもらう
+            // openBD に表紙が無ければ、ISBN で Google Books を引いてサムネイルをもらう（NDL のサムネイルは配信時に試す）
             if ($cover === '') {
                 foreach (googleBooks('isbn:' . $isbn, 1) as $g) {
                     if ($g['cover'] !== '') { $cover = $g['cover']; break; }
@@ -305,16 +408,17 @@ function serveCover(PDO $db, string $id, string $dir): void {
         $st->execute([$id]);
         $row = $st->fetch(PDO::FETCH_ASSOC);
         if (!$row) { http_response_code(404); exit; }
+        // 取得順: NDL サムネイル（ISBN で確実・画質も良い。Referer が無いと 403）→ openBD → Google などの cover_url
         $urls = [];
-        if ($row['cover_url'] !== '') $urls[] = $row['cover_url'];
         if ($row['isbn'] !== '') {
-            $urls[] = 'https://cover.openbd.jp/' . $row['isbn'] . '.jpg';
-            $urls[] = 'https://ndlsearch.ndl.go.jp/thumbnail/' . $row['isbn'] . '.jpg';
+            $urls[] = ['https://ndlsearch.ndl.go.jp/thumbnail/' . $row['isbn'] . '.jpg', ['Referer: https://ndlsearch.ndl.go.jp/']];
+            $urls[] = ['https://cover.openbd.jp/' . $row['isbn'] . '.jpg', []];
         }
+        if ($row['cover_url'] !== '') $urls[] = [$row['cover_url'], []];
         $img = null;
-        foreach ($urls as $u) {
-            $img = httpGet($u, 8);
-            if ($img !== null && strlen($img) > 1000) break;
+        foreach ($urls as [$u, $hdr]) {
+            $img = httpGet($u, 8, $hdr);
+            if ($img !== null && strlen($img) > 1000 && @getimagesizefromstring($img) !== false) break;
             $img = null;
         }
         if ($img === null) { http_response_code(404); exit; }
