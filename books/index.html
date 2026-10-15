@@ -26,12 +26,17 @@
     button, input, textarea { font: inherit; }
     #stage { position: fixed; inset: 0; touch-action: none; }
     #stage canvas { display: block; }
+    /* 周辺減光: 画面の端を暗くして中心の銀河に目が行くように */
+    .vignette { position: fixed; inset: 0; pointer-events: none; z-index: 2;
+      background: radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 45%, rgba(2,3,10,.55) 100%); }
 
     .top { position: fixed; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: flex-start;
       padding: calc(12px + env(safe-area-inset-top)) 14px 0; pointer-events: none; z-index: 5; }
     .top > * { pointer-events: auto; }
     .brand { display: flex; flex-direction: column; gap: 2px; }
-    .brand h1 { margin: 0; font-size: 20px; font-weight: 900; letter-spacing: .02em; text-shadow: 0 2px 14px rgba(0,0,0,.6); }
+    .brand h1 { margin: 0; font-size: 22px; font-weight: 900; letter-spacing: .06em;
+      background: linear-gradient(100deg, #fff6d6 0%, #ffd85a 45%, #ffb3c8 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+      filter: drop-shadow(0 0 12px rgba(255,216,90,.35)) drop-shadow(0 2px 10px rgba(0,0,0,.7)); }
     .brand small { color: var(--muted); font-size: 12px; }
     .hearts { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 999px; background: var(--panel);
       border: 1px solid var(--line); font-size: 13px; font-weight: 800; cursor: pointer; }
@@ -67,6 +72,15 @@
     .detail h2 { margin: 0 0 4px; font-size: 17px; line-height: 1.35; }
     .detail .meta { margin: 0; color: var(--muted); font-size: 12px; }
     .detail .price { margin: 6px 0 0; font-size: 14px; font-weight: 800; color: var(--accent); }
+    .facts { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; }
+    .facts li { padding: 2px 9px; border-radius: 999px; background: rgba(255,255,255,.07); color: var(--muted); font-size: 11.5px; }
+    .desc { margin: 12px 0 0; }
+    .desc h3 { margin: 0 0 4px; font-size: 12px; color: var(--muted); font-weight: 800; letter-spacing: .04em; }
+    .desc p { margin: 0; font-size: 13.5px; line-height: 1.7; white-space: pre-line; color: #dfe5f7;
+      display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+    .desc.open p { display: block; -webkit-line-clamp: unset; }
+    .desc button { margin-top: 4px; padding: 0; border: 0; background: none; color: var(--blue); font-size: 12px; cursor: pointer; }
+    .desc small { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
     .obi { margin: 12px 0 0; padding: 10px 12px; border-left: 3px solid var(--accent); background: rgba(255,216,90,.08); border-radius: 0 10px 10px 0; font-size: 14px; }
     .obi small { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; }
     .voters { margin: 10px 0 0; font-size: 12px; color: var(--muted); }
@@ -117,6 +131,7 @@
 </head>
 <body>
   <div id="stage"></div>
+  <div class="vignette"></div>
   <div id="grid"><div class="g" id="gridInner"></div></div>
   <div class="loading" id="loading">本を集めています…</div>
 
@@ -149,6 +164,7 @@
       <input type="text" id="q" placeholder="例：イシューからはじめよ" autocomplete="off" />
       <button class="btn small" id="searchBtn" type="button">検索</button>
     </div>
+    <p class="note" id="searchNote">⏳ 検索は国立国会図書館と Google Books に問い合わせるため、10〜30秒ほどかかります。</p>
     <div class="cands" id="cands"></div>
     <form id="addForm" style="display:none">
       <div class="picked" id="picked"></div>
@@ -171,7 +187,7 @@
   <div class="modal" id="nameModal">
     <div class="box">
       <h3>名前を教えてください</h3>
-      <p>「読みたい」は一人3冊まで。名前はこのスマホに覚えておきます。</p>
+      <p id="nameNote">「読みたい」は何冊でも。名前はこの端末に覚えておきます。</p>
       <input type="text" id="nameInput" maxlength="30" placeholder="班で呼ばれている名前" />
       <div class="actions"><button class="btn primary" id="nameOk" type="button">これでいく</button><button class="btn small" id="nameCancel" type="button">やめる</button></div>
     </div>
@@ -195,7 +211,7 @@
 
     const apiUrl = new URLSearchParams(location.search).get('api') || API;
     let live = false;            // api.php につながっているか
-    let state = { settings: { hearts: 3, maxObi: 100 }, books: [] };
+    let state = { settings: { hearts: 0, maxObi: 100 }, books: [] };
     let myName = '';
     try { myName = localStorage.getItem(NAME_KEY) || ''; } catch (e) { /* 保存不可 */ }
 
@@ -210,7 +226,7 @@
     // ================= データ =================
     function normalize(data) {
       return {
-        settings: Object.assign({ hearts: 3, maxObi: 100 }, data.settings || {}),
+        settings: Object.assign({ hearts: 0, maxObi: 100 }, data.settings || {}),
         books: (data.books || []).map((b) => Object.assign({ voters: [], votes: 0 }, b, { votes: (b.voters || []).length }))
       };
     }
@@ -240,12 +256,12 @@
     }
 
     function demoApply(body) {
-      const hearts = state.settings.hearts;
+      const hearts = state.settings.hearts; // 0 = 何冊でも
       if (body.action === 'vote') {
         const b = state.books.find((x) => x.id === body.bookId);
         const mine = state.books.filter((x) => x.voters.includes(body.name)).length;
         if (!b.voters.includes(body.name)) {
-          if (mine >= hearts) throw new Error('「読みたい」は' + hearts + '冊までです。どれかを外してください');
+          if (hearts > 0 && mine >= hearts) throw new Error('「読みたい」は' + hearts + '冊までです。どれかを外してください');
           b.voters.push(body.name);
         }
       } else if (body.action === 'unvote') {
@@ -336,28 +352,60 @@
       const group = new THREE.Group();
       scene.add(group);
 
-      // 星
-      const starN = 1600, pos = new Float32Array(starN * 3);
-      for (let i = 0; i < starN; i++) {
-        const r = 26 + Math.random() * 40, t = Math.random() * Math.PI * 2, p = Math.acos(2 * Math.random() - 1);
-        pos[i * 3] = r * Math.sin(p) * Math.cos(t); pos[i * 3 + 1] = r * Math.sin(p) * Math.sin(t); pos[i * 3 + 2] = r * Math.cos(p);
-      }
-      const starGeo = new THREE.BufferGeometry(); starGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-      const dotC = document.createElement('canvas'); dotC.width = dotC.height = 32;
-      const dg = dotC.getContext('2d'); const dgr = dg.createRadialGradient(16, 16, 0, 16, 16, 16);
-      dgr.addColorStop(0, 'rgba(255,255,255,1)'); dgr.addColorStop(.5, 'rgba(255,255,255,.5)'); dgr.addColorStop(1, 'rgba(255,255,255,0)');
-      dg.fillStyle = dgr; dg.fillRect(0, 0, 32, 32);
-      const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xbfd0ff, size: 0.22, sizeAttenuation: true, transparent: true, opacity: .85, map: new THREE.CanvasTexture(dotC), depthWrite: false }));
-      scene.add(stars);
+      // ---- 空（星・星雲）はひとつのグループに入れて、ゆっくり回す ----
+      const sky = new THREE.Group(); scene.add(sky);
+      const radial = (size, stops) => { // 中心から外へ薄れる丸いテクスチャ
+        const c = document.createElement('canvas'); c.width = c.height = size;
+        const g = c.getContext('2d'); const gr = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+        stops.forEach(([o, col]) => gr.addColorStop(o, col)); g.fillStyle = gr; g.fillRect(0, 0, size, size);
+        return new THREE.CanvasTexture(c);
+      };
+      const dotTex = radial(32, [[0, 'rgba(255,255,255,1)'], [.5, 'rgba(255,255,255,.5)'], [1, 'rgba(255,255,255,0)']]);
+      const scatter = (n, rMin, rMax) => { // 球殻に点をばらまく
+        const pos = new Float32Array(n * 3);
+        for (let i = 0; i < n; i++) {
+          const r = rMin + Math.random() * (rMax - rMin), t = Math.random() * Math.PI * 2, p = Math.acos(2 * Math.random() - 1);
+          pos[i * 3] = r * Math.sin(p) * Math.cos(t); pos[i * 3 + 1] = r * Math.sin(p) * Math.sin(t); pos[i * 3 + 2] = r * Math.cos(p);
+        }
+        const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); return geo;
+      };
+      const points = (geo, color, size, opacity) => new THREE.Points(geo, new THREE.PointsMaterial({ color, size, sizeAttenuation: true, transparent: true, opacity, map: dotTex, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+      // 遠くの細かい星、近くの明るい星（別々にまたたかせる）、本のまわりを漂う塵
+      const starsFar = points(scatter(2600, 30, 70), 0xbfd0ff, 0.2, .8);
+      const starsNear = points(scatter(320, 22, 40), 0xfff4d6, 0.5, .9);
+      const dust = points(scatter(420, sphereRadius() + 1.5, sphereRadius() + 7), 0x9fb6ff, 0.09, .55);
+      sky.add(starsFar); sky.add(starsNear); scene.add(dust);
 
-      // 光のにじみ（人気の本の後ろに置く）
-      const glowC = document.createElement('canvas'); glowC.width = glowC.height = 128;
-      const gg = glowC.getContext('2d'); const rg = gg.createRadialGradient(64, 64, 0, 64, 64, 64);
-      rg.addColorStop(0, 'rgba(255,216,90,.9)'); rg.addColorStop(.4, 'rgba(255,160,90,.35)'); rg.addColorStop(1, 'rgba(255,120,90,0)');
-      gg.fillStyle = rg; gg.fillRect(0, 0, 128, 128);
-      const glowTex = new THREE.CanvasTexture(glowC);
+      // 星雲: 大きく淡い色の光を遠くに何枚か重ねる
+      const nebulaColors = [[122, 86, 255], [54, 120, 255], [255, 92, 138], [40, 190, 200], [255, 160, 90]];
+      nebulaColors.forEach((rgb, i) => {
+        const [r, g, b] = rgb;
+        const tex = radial(256, [[0, `rgba(${r},${g},${b},.55)`], [.35, `rgba(${r},${g},${b},.22)`], [.7, `rgba(${r},${g},${b},.06)`], [1, `rgba(${r},${g},${b},0)`]]);
+        const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: .55 + Math.random() * .2, fog: false }));
+        const t = (i / nebulaColors.length) * Math.PI * 2 + Math.random(), p = Math.acos(2 * Math.random() - 1), R = 48;
+        sp.position.set(R * Math.sin(p) * Math.cos(t), R * Math.sin(p) * Math.sin(t) * 0.7, R * Math.cos(p));
+        const s = 52 + Math.random() * 36; sp.scale.set(s * (1 + Math.random() * .6), s, 1);
+        sky.add(sp);
+      });
 
-      three = { renderer, scene, camera, group, stars, glowTex, sprites: new Map(), glows: new Map(), selected: null, targetQ: null,
+      // 銀河の核: 本の球の奥にひろがる淡い光（中心に目を引きつける）
+      const core = new THREE.Sprite(new THREE.SpriteMaterial({ map: radial(256, [[0, 'rgba(170,190,255,.55)'], [.3, 'rgba(120,110,255,.25)'], [.65, 'rgba(255,120,160,.07)'], [1, 'rgba(0,0,0,0)']]), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: .9, fog: false }));
+      core.position.set(0, 0, -sphereRadius() * 1.2); const cs = sphereRadius() * 4.2; core.scale.set(cs, cs, 1); scene.add(core);
+
+      // 光のにじみ: 人気の本には暖かい光、それ以外にも冷たいかすかな光
+      const glowTex = radial(128, [[0, 'rgba(255,216,90,.9)'], [.4, 'rgba(255,160,90,.35)'], [1, 'rgba(255,120,90,0)']]);
+      const glowCoolTex = radial(128, [[0, 'rgba(180,200,255,.7)'], [.4, 'rgba(120,150,255,.22)'], [1, 'rgba(90,120,255,0)']]);
+
+      // 流れ星（細長い光の筋。ときどき空を横切る）
+      const streakC = document.createElement('canvas'); streakC.width = 256; streakC.height = 16;
+      const sg = streakC.getContext('2d'); const lg = sg.createLinearGradient(0, 0, 256, 0);
+      lg.addColorStop(0, 'rgba(255,255,255,0)'); lg.addColorStop(.7, 'rgba(255,255,255,.35)'); lg.addColorStop(1, 'rgba(255,255,255,1)');
+      sg.fillStyle = lg; sg.fillRect(0, 0, 256, 16);
+      const streak = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(streakC), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0, fog: false }));
+      streak.scale.set(7, 0.12, 1); streak.visible = false; scene.add(streak);
+
+      three = { renderer, scene, camera, group, sky, starsFar, starsNear, dust, glowTex, glowCoolTex, streak, meteor: null, nextMeteor: performance.now() + 5000,
+        camZ: 10, sprites: new Map(), glows: new Map(), selected: null, targetQ: null,
         vel: { x: 0, y: 0 }, lastInteract: 0, dragging: false, loader: new THREE.TextureLoader() };
       three.loader.setCrossOrigin('anonymous');
       resize();
@@ -376,7 +424,8 @@
       const vfov = THREE.MathUtils.degToRad(three.camera.fov);
       const hfov = 2 * Math.atan(Math.tan(vfov / 2) * aspect);
       // 球が画面からすこしはみ出すくらいに寄る（スマホで迫力が出る）
-      three.camera.position.set(0, 0, radius / Math.tan(Math.min(vfov, hfov) / 2) * (aspect < 1 ? 0.72 : 0.9));
+      three.camZ = radius / Math.tan(Math.min(vfov, hfov) / 2) * (aspect < 1 ? 0.72 : 0.8);
+      three.camera.position.set(0, 0, three.camZ);
       three.camera.lookAt(0, 0, 0);
     }
 
@@ -398,19 +447,28 @@
         const sprite = ensureSprite(b);
         sprite.userData.target = target;
         sprite.userData.scale = 1 + 0.35 * (b.votes / maxV) * (b.votes > 0 ? 1 : 0);
-        if (!animate || !sprite.userData.placed) { sprite.position.copy(target); sprite.userData.placed = true; }
+        if (!sprite.userData.placed) {
+          // 初めて現れる本は中心から広がって自分の場所へ（最初の読み込みでは銀河が生まれるように見える）
+          sprite.position.copy(target).multiplyScalar(animate ? 0.3 : 0.04);
+          sprite.userData.placed = true;
+        } else if (!animate) sprite.position.copy(target);
         let glow = three.glows.get(b.id);
-        if (b.votes > 0) {
-          if (!glow) {
-            glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: three.glowTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: .6 }));
-            three.group.add(glow); three.glows.set(b.id, glow);
-          }
-          glow.userData.size = COVER_H * (1.15 + 0.7 * b.votes / maxV);
-          glow.visible = true;
-        } else if (glow) glow.visible = false;
+        if (!glow) {
+          glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: three.glowCoolTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: .3 }));
+          three.group.add(glow); three.glows.set(b.id, glow);
+        }
+        // 「読みたい」が付いた本は暖かい光で大きく、付いていない本は冷たい光でかすかに
+        glow.material.map = b.votes > 0 ? three.glowTex : three.glowCoolTex;
+        glow.material.opacity = b.votes > 0 ? .6 : .28;
+        glow.material.needsUpdate = true;
+        glow.userData.size = COVER_H * (b.votes > 0 ? 1.15 + 0.7 * b.votes / maxV : 1.25);
+        glow.visible = true;
       });
       // 消えた本
-      for (const [id, sp] of three.sprites) if (!books.some((b) => b.id === id)) { three.group.remove(sp); three.sprites.delete(id); }
+      for (const [id, sp] of three.sprites) if (!books.some((b) => b.id === id)) {
+        three.group.remove(sp); three.sprites.delete(id);
+        const g = three.glows.get(id); if (g) { three.group.remove(g); three.glows.delete(id); }
+      }
     }
 
     function ensureSprite(book) {
@@ -445,7 +503,24 @@
         rotateBy(vx + (idle ? 0.0016 : 0), vy);
         three.vel.x *= 0.94; three.vel.y *= 0.94;
       }
-      three.stars.rotation.y += 0.0002;
+      // 空はゆっくり流れ、星は呼吸するようにまたたく。塵は逆向きに漂う
+      three.sky.rotation.y += 0.00012; three.sky.rotation.x = Math.sin(now * 0.00002) * 0.05;
+      three.starsNear.material.opacity = 0.75 + 0.25 * Math.sin(now * 0.0011);
+      three.starsFar.material.opacity = 0.7 + 0.15 * Math.sin(now * 0.0007 + 1.3);
+      three.dust.rotation.y -= 0.00035; three.dust.rotation.z = Math.sin(now * 0.00005) * 0.1;
+      // カメラはごく小さく前後に揺れる（息をしているような静かな動き）
+      three.camera.position.z = three.camZ + Math.sin(now * 0.0004) * 0.18;
+      // 流れ星
+      if (three.meteor) {
+        const m = three.meteor, k = (now - m.t0) / m.dur;
+        if (k >= 1) { three.streak.visible = false; three.meteor = null; three.nextMeteor = now + 7000 + Math.random() * 9000; }
+        else { three.streak.position.copy(m.from).lerp(m.to, k); three.streak.material.opacity = Math.sin(k * Math.PI) * 0.9; }
+      } else if (now > three.nextMeteor && !three.dragging) {
+        const a = Math.random() * Math.PI * 2, y = (Math.random() - 0.3) * 18, R = 30;
+        const from = new THREE.Vector3(Math.cos(a) * R, y + 6, Math.sin(a) * R), to = new THREE.Vector3(Math.cos(a + 0.5) * R, y - 4, Math.sin(a + 0.5) * R);
+        three.meteor = { from, to, t0: now, dur: 900 + Math.random() * 500 };
+        three.streak.visible = true; three.streak.material.rotation = Math.atan2(to.y - from.y, to.x - from.x);
+      }
       for (const sp of three.sprites.values()) {
         const u = sp.userData;
         if (u.target) sp.position.lerp(u.target, 0.06);
@@ -453,7 +528,12 @@
         u.cur += (want - u.cur) * 0.12;
         sp.scale.set(COVER_H * u.aspect * u.cur, COVER_H * u.cur, 1);
         const glow = three.glows.get(u.book.id);
-        if (glow && glow.visible) { glow.position.copy(sp.position); const s = glow.userData.size * u.cur; glow.scale.set(s, s, 1); }
+        if (glow && glow.visible) {
+          glow.position.copy(sp.position);
+          // 選ばれている本の光はゆっくり脈打つ
+          const pulse = three.selected === sp ? 1.25 + 0.15 * Math.sin(now * 0.004) : 1;
+          const s = glow.userData.size * u.cur * pulse; glow.scale.set(s, s, 1);
+        }
       }
       three.renderer.render(three.scene, three.camera);
     }
@@ -504,8 +584,8 @@
     }
 
     function zoom(d) {
-      const c = three.camera; const z = THREE.MathUtils.clamp(c.position.z + d, sphereRadius() * 0.6, sphereRadius() * 4);
-      c.position.z = z; three.lastInteract = performance.now();
+      three.camZ = THREE.MathUtils.clamp(three.camZ + d, sphereRadius() * 0.6, sphereRadius() * 4);
+      three.camera.position.z = three.camZ; three.lastInteract = performance.now();
     }
 
     const raycaster = new THREE.Raycaster();
@@ -540,13 +620,30 @@
     function renderTop() {
       const hearts = state.settings.hearts, used = myVotes().length;
       $('count').textContent = state.books.length + '冊が浮かんでいます' + (live ? '' : '（お試し：この端末だけ）');
-      $('heartsIcons').innerHTML = Array.from({ length: hearts }, (_, i) => '<span class="' + (i < used ? '' : 'off') + '">♥</span>').join('');
+      // hearts が 0 のときは上限なし。自分が入れた数だけ表示する
+      $('heartsIcons').innerHTML = hearts > 0
+        ? Array.from({ length: hearts }, (_, i) => '<span class="' + (i < used ? '' : 'off') + '">♥</span>').join('')
+        : '<span class="' + (used ? '' : 'off') + '">♥</span>' + (used ? ' ' + used : '');
       $('heartsName').textContent = myName ? myName : '読みたい';
+      $('nameNote').textContent = (hearts > 0 ? '「読みたい」は一人' + hearts + '冊まで。' : '「読みたい」は何冊でも。') + '名前はこの端末に覚えておきます。';
     }
 
     function renderDetail(id) {
       const b = state.books.find((x) => x.id === id); if (!b) return;
       const mine = myName && b.voters.includes(myName);
+      const facts = [];
+      if (b.pubdate) facts.push(esc(b.pubdate.replace(/^(\d{4})\.(\d{1,2})$/, '$1年$2月') + ' 発行'));
+      if (b.pages) facts.push(esc(b.pages + ' ページ'));
+      if (b.isbn) facts.push('ISBN ' + esc(b.isbn));
+      const links = [];
+      if (b.url) links.push(`<a href="${esc(b.url)}" target="_blank" rel="noopener">本の情報を見る ↗</a>`);
+      if (b.isbn) {
+        links.push(`<a href="https://ndlsearch.ndl.go.jp/books?isbn=${esc(b.isbn)}" target="_blank" rel="noopener">国会図書館 ↗</a>`);
+        links.push(`<a href="https://www.hanmoto.com/bd/isbn/${esc(b.isbn)}" target="_blank" rel="noopener">版元ドットコム ↗</a>`);
+        links.push(`<a href="https://www.amazon.co.jp/s?k=${esc(b.isbn)}" target="_blank" rel="noopener">Amazon ↗</a>`);
+      } else if (!b.url) {
+        links.push(`<a href="https://ndlsearch.ndl.go.jp/search?cs=bib&f-ht=ndl&keyword=${encodeURIComponent(b.title)}" target="_blank" rel="noopener">国会図書館で探す ↗</a>`);
+      }
       $('detailBody').innerHTML = `
         <div class="detail">
           ${coverImg(b)}
@@ -554,15 +651,19 @@
             <h2>${esc(b.title)}</h2>
             <p class="meta">${esc(b.author || '著者不明')}${b.publisher ? '｜' + esc(b.publisher) : ''}</p>
             <p class="price">${yen(b.price)}</p>
+            ${facts.length ? `<ul class="facts">${facts.map((f) => `<li>${f}</li>`).join('')}</ul>` : ''}
           </div>
         </div>
         <div class="obi">${esc(b.obi || '')}<small>── ${esc(b.proposer || '')}</small></div>
+        ${b.description ? `<div class="desc" id="desc"><h3>内容紹介</h3><p>${esc(b.description)}</p>${b.description.length > 140 ? '<button type="button" id="descMore">もっと読む</button>' : ''}<small>出版社・Google Books の紹介文より</small></div>` : ''}
         <p class="voters">${b.voters.length ? '読みたい：' + b.voters.map((n) => `<span>${esc(n)}</span>`).join('') : 'まだ誰も「読みたい」していません。最初の一人になる？'}</p>
         <div class="actions">
           <button class="btn heart ${mine ? 'on' : ''}" type="button" data-vote="${esc(b.id)}">${mine ? '♥ 読みたい済み（外す）' : '♥ 読みたい'}</button>
-          ${b.url ? `<a href="${esc(b.url)}" target="_blank" rel="noopener">本の情報を見る ↗</a>` : (b.isbn ? `<a href="https://ndlsearch.ndl.go.jp/books?isbn=${esc(b.isbn)}" target="_blank" rel="noopener">国会図書館で見る ↗</a>` : '')}
+          ${links.join('')}
         </div>`;
       fixBrokenCovers($('detailBody'));
+      const more = $('descMore');
+      if (more) more.addEventListener('click', () => { const d = $('desc'); d.classList.toggle('open'); more.textContent = d.classList.contains('open') ? '閉じる' : 'もっと読む'; });
     }
 
     $('detailBody').addEventListener('click', async (e) => {
@@ -623,7 +724,11 @@
 
     async function search() {
       const q = $('q').value.trim(); if (!q) return;
-      $('cands').innerHTML = '<p class="note">探しています…</p>';
+      // 外部 API（国会図書館・Google Books）に順に問い合わせるので待たせる。経過秒数を見せて不安を減らす
+      const started = Date.now();
+      const showWait = () => { const s = Math.round((Date.now() - started) / 1000); $('cands').innerHTML = `<p class="note">⏳ 国会図書館と Google Books に問い合わせ中… ${s} 秒${s >= 15 ? '（もう少しお待ちください）' : ''}</p>`; };
+      showWait(); const waitTimer = setInterval(showWait, 1000);
+      $('searchBtn').disabled = true;
       let cands = [];
       try {
         if (live) {
@@ -633,6 +738,7 @@
           cands = await lookupDirect(q);
         }
       } catch (e) { cands = []; }
+      clearInterval(waitTimer); $('searchBtn').disabled = false;
       if (!cands.length) { $('cands').innerHTML = '<p class="note">見つかりませんでした。下の「手で入れる」からどうぞ。</p>'; return; }
       $('cands').innerHTML = cands.map((c, i) => `
         <button class="cand" type="button" data-cand="${i}">

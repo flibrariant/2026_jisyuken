@@ -13,7 +13,8 @@
 
 declare(strict_types=1);
 
-const HEARTS = 3;             // 一人あたりの「読みたい」数
+const HEARTS = 0;             // 一人あたりの「読みたい」数（0 = 何冊でも）
+const MAX_DESC = 800;         // 内容紹介の最大文字数
 const MAX_OBI = 100;          // 一言の最大文字数
 const RESOLVE_PER_REQUEST = 2; // 1リクエストあたり、表紙や定価を補完する本の数
 
@@ -88,6 +89,11 @@ function openDb(string $path): PDO {
         obi TEXT DEFAULT "", proposer TEXT DEFAULT "", resolve_tries INTEGER DEFAULT 0, created_at TEXT)');
     $db->exec('CREATE TABLE IF NOT EXISTS votes (
         book_id TEXT NOT NULL, name TEXT NOT NULL, created_at TEXT, PRIMARY KEY (book_id, name))');
+    // あとから足した列（古い DB にも追加する）
+    $cols = array_column($db->query('PRAGMA table_info(books)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+    foreach (['description' => 'TEXT DEFAULT ""', 'pubdate' => 'TEXT DEFAULT ""', 'pages' => 'INTEGER'] as $col => $type) {
+        if (!in_array($col, $cols, true)) $db->exec("ALTER TABLE books ADD COLUMN $col $type");
+    }
     return $db;
 }
 
@@ -109,12 +115,15 @@ function seedIfEmpty(PDO $db): void {
 }
 
 function state(PDO $db): array {
-    $books = $db->query('SELECT id,title,author,publisher,price,isbn,cover_url,url,obi,proposer,created_at FROM books ORDER BY created_at, id')->fetchAll(PDO::FETCH_ASSOC);
+    $books = $db->query('SELECT id,title,author,publisher,price,isbn,cover_url,url,obi,proposer,created_at,description,pubdate,pages FROM books ORDER BY created_at, id')->fetchAll(PDO::FETCH_ASSOC);
     $votes = $db->query('SELECT book_id, name FROM votes ORDER BY created_at')->fetchAll(PDO::FETCH_ASSOC);
     $byBook = [];
     foreach ($votes as $v) $byBook[$v['book_id']][] = $v['name'];
     foreach ($books as &$b) {
         $b['price'] = $b['price'] === null ? null : (int)$b['price'];
+        $b['pages'] = $b['pages'] === null ? null : (int)$b['pages'];
+        $b['description'] = (string)($b['description'] ?? '');
+        $b['pubdate'] = (string)($b['pubdate'] ?? '');
         $b['voters'] = $byBook[$b['id']] ?? [];
         $b['votes'] = count($b['voters']);
         // 表紙は同一オリジンのプロキシ経由（キャッシュ済みか、ISBN か URL が分かっていれば取りに行く）
@@ -145,7 +154,7 @@ function vote(PDO $db, array $body, bool $on): void {
         $cnt->execute([$name]);
         $has = $db->prepare('SELECT 1 FROM votes WHERE book_id = ? AND name = ?');
         $has->execute([$bookId, $name]);
-        if (!$has->fetchColumn() && (int)$cnt->fetchColumn() >= HEARTS) throw new RuntimeException('「読みたい」は' . HEARTS . '冊までです。どれかを外してください');
+        if (HEARTS > 0 && !$has->fetchColumn() && (int)$cnt->fetchColumn() >= HEARTS) throw new RuntimeException('「読みたい」は' . HEARTS . '冊までです。どれかを外してください');
         $db->prepare('INSERT OR IGNORE INTO votes (book_id, name, created_at) VALUES (?,?,?)')->execute([$bookId, $name, gmdate('c')]);
     } else {
         $db->prepare('DELETE FROM votes WHERE book_id = ? AND name = ?')->execute([$bookId, $name]);
@@ -259,7 +268,9 @@ function ndlSearch(string $title, string $author = '', int $max = 3): array {
         $priceRaw = $get('#<dcndl:price>([^<]+)#'); // 例: "1000円" (本体価格) → 税込に
         $price = preg_match('/(\d[\d,]*)/', $priceRaw, $pm) ? (int)round((int)str_replace(',', '', $pm[1]) * 1.1) : null;
         if ($t === '' || strlen($isbn) !== 13) continue;
-        $out[] = ['title' => $t, 'author' => $creator, 'publisher' => $publisher, 'isbn' => $isbn, 'cover' => '', 'price' => $price, 'date' => $get('#<dcterms:issued>([^<]+)#')];
+        $pages = preg_match('/(\d+)\s*p/u', $get('#<dc:extent>([^<]+)#'), $pm) ? (int)$pm[1] : null; // 例: "285p"
+        $out[] = ['title' => $t, 'author' => $creator, 'publisher' => $publisher, 'isbn' => $isbn, 'cover' => '', 'price' => $price,
+            'date' => $get('#<dcterms:issued>([^<]+)#'), 'description' => '', 'pages' => $pages];
     }
     return $out;
 }
@@ -281,10 +292,39 @@ function openbd(string $isbn): ?array {
             break;
         }
     }
+    // 内容紹介: ONIX の CollateralDetail/TextContent（03=内容紹介、02=短い紹介、04=目次 の順で採用）
+    $desc = '';
+    $texts = $d[0]['onix']['CollateralDetail']['TextContent'] ?? [];
+    foreach (['03', '02', '04'] as $want) {
+        foreach ($texts as $t) {
+            if ((string)($t['TextType'] ?? '') === $want && trim((string)($t['Text'] ?? '')) !== '') { $desc = (string)$t['Text']; break 2; }
+        }
+    }
+    // ページ数: DescriptiveDetail/Extent（ExtentType 11 = 本文ページ数）
+    $pages = null;
+    foreach ($d[0]['onix']['DescriptiveDetail']['Extent'] ?? [] as $e) {
+        if (!empty($e['ExtentValue'])) { $pages = (int)$e['ExtentValue']; break; }
+    }
     return [
         'title' => (string)($s['title'] ?? ''), 'author' => (string)($s['author'] ?? ''), 'publisher' => (string)($s['publisher'] ?? ''),
         'isbn' => (string)($s['isbn'] ?? $isbn), 'cover' => (string)($s['cover'] ?? ''), 'price' => $price,
+        'description' => cleanDesc($desc), 'pubdate' => (string)($s['pubdate'] ?? ''), 'pages' => $pages,
     ];
+}
+
+/** 内容紹介のテキストを整える（HTML を落とし、空白をまとめ、長さを制限） */
+function cleanDesc(string $s): string {
+    $s = html_entity_decode(strip_tags(preg_replace('#<br\s*/?>#i', "\n", $s) ?? $s), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $s = preg_replace("/[ \t\x{3000}]+/u", ' ', $s) ?? $s;
+    $s = preg_replace("/\n{3,}/", "\n\n", trim($s)) ?? $s;
+    return mb_strlen($s) > MAX_DESC ? rtrim(mb_substr($s, 0, MAX_DESC - 1)) . '…' : $s;
+}
+
+/** 発行年月をそろえる（"20240417" → "2024.4"、"2024-04-17" → "2024.4"、"2024.4" はそのまま） */
+function normDate(string $s): string {
+    if (preg_match('/^(\d{4})[-.\/]?(\d{1,2})/', $s, $m)) return $m[1] . '.' . (int)$m[2];
+    if (preg_match('/^(\d{4})/', $s, $m)) return $m[1];
+    return '';
 }
 
 /** Google Books: 書名や著者 → 候補 */
@@ -306,6 +346,7 @@ function googleBooks(string $q, int $max = 6): array {
             'author' => implode('・', $v['authors'] ?? []), 'publisher' => (string)($v['publisher'] ?? ''),
             'isbn' => $isbn, 'cover' => $thumb, 'price' => $price !== null ? (int)round((float)$price) : null,
             'date' => (string)($v['publishedDate'] ?? ''),
+            'description' => cleanDesc((string)($v['description'] ?? '')), 'pages' => !empty($v['pageCount']) ? (int)$v['pageCount'] : null,
         ];
     }
     return $out;
@@ -343,13 +384,25 @@ function lookup(string $q): array {
 
 /** 表紙や定価が欠けている本を、少しずつ補完する（1リクエストに数冊まで、各本5回まで試す。NDL が遅くて失敗することがあるため多め） */
 function resolveSome(PDO $db): void {
-    $rows = $db->query('SELECT id,title,author,isbn,cover_url,price FROM books
-        WHERE (cover_url = "" OR price IS NULL OR isbn = "") AND resolve_tries < 5 ORDER BY resolve_tries, created_at LIMIT ' . RESOLVE_PER_REQUEST)->fetchAll(PDO::FETCH_ASSOC);
+    $rows = $db->query('SELECT id,title,author,isbn,cover_url,price,description,pubdate,pages FROM books
+        WHERE (cover_url = "" OR price IS NULL OR isbn = "" OR description = "" OR pubdate = "") AND resolve_tries < 5
+        ORDER BY resolve_tries, created_at LIMIT ' . RESOLVE_PER_REQUEST)->fetchAll(PDO::FETCH_ASSOC);
     foreach ($rows as $r) {
         $db->prepare('UPDATE books SET resolve_tries = resolve_tries + 1 WHERE id = ?')->execute([$r['id']]);
         $isbn = $r['isbn'];
         $cover = $r['cover_url'];
         $price = $r['price'];
+        $desc = (string)($r['description'] ?? '');
+        $pubdate = (string)($r['pubdate'] ?? '');
+        $pages = $r['pages'] !== null ? (int)$r['pages'] : null;
+        $take = function (array $src) use (&$cover, &$price, &$desc, &$pubdate, &$pages): void {
+            // 欠けているものだけ候補から埋める
+            if ($cover === '' && ($src['cover'] ?? '') !== '') $cover = $src['cover'];
+            if ($price === null && ($src['price'] ?? null) !== null) $price = $src['price'];
+            if ($desc === '' && ($src['description'] ?? '') !== '') $desc = $src['description'];
+            if ($pubdate === '' && normDate((string)($src['pubdate'] ?? $src['date'] ?? '')) !== '') $pubdate = normDate((string)($src['pubdate'] ?? $src['date'] ?? ''));
+            if ($pages === null && !empty($src['pages'])) $pages = (int)$src['pages'];
+        };
         if ($isbn === '') {
             $author = $r['author'] !== '' ? mb_substr(preg_split('/[・、,]/u', $r['author'])[0], 0, 20) : '';
             // 1) NDL: 書名（＋著者）で探し、書名が一致するものだけ採用。
@@ -363,14 +416,14 @@ function resolveSome(PDO $db): void {
                 if (!$hits && $author !== '') $hits = array_filter(ndlSearch($t, '', 5), fn($n) => titleMatches($r['title'], $n['title']) && authorMatches($r['author'], $n['author']));
                 if ($hits) break;
             }
-            foreach ($hits as $n) { $isbn = $n['isbn']; if ($price === null) $price = $n['price']; break; }
+            foreach ($hits as $n) { $isbn = $n['isbn']; $take($n); break; }
             // 2) Google: NDL で見つからなければ「書名 著者」で探す。書名一致のものだけ、日本の ISBN（9784…）を優先
             if ($isbn === '') {
                 $q = mb_substr($r['title'], 0, 40) . ($author !== '' ? ' ' . $author : '');
                 $cands = array_filter(googleBooks($q, 5), fn($g) => titleMatches($r['title'], $g['title']) && authorMatches($r['author'], $g['author']));
                 usort($cands, fn($a, $b) => (int)(strpos($b['isbn'], '9784') === 0) - (int)(strpos($a['isbn'], '9784') === 0));
                 foreach ($cands as $g) {
-                    if ($g['isbn'] !== '') { $isbn = $g['isbn']; if ($cover === '') $cover = $g['cover']; if ($price === null) $price = $g['price']; break; }
+                    if ($g['isbn'] !== '') { $isbn = $g['isbn']; $take($g); break; }
                     if ($cover === '' && $g['cover'] !== '') $cover = $g['cover'];
                 }
                 // Google の回数制限で失敗したときは、試行回数に数えない（後でやり直せるように）
@@ -381,23 +434,32 @@ function resolveSome(PDO $db): void {
             }
         }
         if ($isbn !== '') {
+            // openBD: 版元の内容紹介・定価・発行年月・ページ数（表紙は openBD を優先）
             $b = openbd($isbn);
-            if ($b) {
-                if ($b['cover'] !== '') $cover = $b['cover'];
-                if ($price === null && $b['price'] !== null) $price = $b['price'];
-            }
-            // openBD に表紙が無ければ、ISBN で Google Books を引いてサムネイルをもらう（NDL のサムネイルは配信時に試す）
-            if ($cover === '') {
-                foreach (googleBooks('isbn:' . $isbn, 1) as $g) {
-                    if ($g['cover'] !== '') { $cover = $g['cover']; break; }
-                }
+            if ($b) { if ($b['cover'] !== '') $cover = $b['cover']; $take($b); }
+            // まだ欠けていれば Google Books を引く（表紙サムネイル、紹介文、ページ数）。
+            // 日本の本は isbn: 検索に出ないことが多いので、書名（＋著者）検索で書名・著者が一致する候補からも採る（ISBN が無くても可）
+            if ($cover === '' || $desc === '' || $pages === null || $pubdate === '') {
+                foreach (googleBooks('isbn:' . $isbn, 1) as $g) { $take($g); break; }
                 if (($GLOBALS['lastHttpCode'] ?? 0) === 429) {
                     $db->prepare('UPDATE books SET resolve_tries = resolve_tries - 1 WHERE id = ?')->execute([$r['id']]);
                     continue;
                 }
+                if ($desc === '' || $pages === null) {
+                    $author = $r['author'] !== '' ? mb_substr(preg_split('/[・、,]/u', $r['author'])[0], 0, 20) : '';
+                    $q = mb_substr($r['title'], 0, 40) . ($author !== '' ? ' ' . $author : '');
+                    foreach (googleBooks($q, 5) as $g) {
+                        if (titleMatches($r['title'], $g['title']) && authorMatches($r['author'], $g['author'])) { $take(['description' => $g['description'], 'pages' => $g['pages'], 'date' => $g['date']]); break; }
+                    }
+                    if (($GLOBALS['lastHttpCode'] ?? 0) === 429) {
+                        $db->prepare('UPDATE books SET resolve_tries = resolve_tries - 1 WHERE id = ?')->execute([$r['id']]);
+                        continue;
+                    }
+                }
             }
         }
-        $db->prepare('UPDATE books SET isbn = ?, cover_url = ?, price = ? WHERE id = ?')->execute([$isbn, $cover, $price, $r['id']]);
+        $db->prepare('UPDATE books SET isbn = ?, cover_url = ?, price = ?, description = ?, pubdate = ?, pages = ? WHERE id = ?')
+            ->execute([$isbn, $cover, $price, $desc, $pubdate, $pages, $r['id']]);
     }
 }
 
