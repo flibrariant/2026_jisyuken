@@ -18,6 +18,23 @@ const MAX_OBI = 100;          // 一言の最大文字数
 const RESOLVE_PER_REQUEST = 2; // 1リクエストあたり、表紙や定価を補完する本の数
 
 $dataDir = __DIR__ . '/data';
+
+/**
+ * Google Books API キー（任意）。無くても動くが、キー無しだと Google 側の共有枠で 429 になりやすい。
+ * 置き方: 環境変数 GOOGLE_BOOKS_API_KEY、または data/google_books_key.txt に1行で書く（data/ は外から読めない）。
+ */
+function googleKey(): string {
+    static $key = null;
+    if ($key === null) {
+        $key = trim((string)getenv('GOOGLE_BOOKS_API_KEY'));
+        if ($key === '') {
+            $f = __DIR__ . '/data/google_books_key.txt';
+            $key = is_file($f) ? trim((string)@file_get_contents($f)) : '';
+        }
+    }
+    return $key;
+}
+
 if (!is_dir($dataDir)) @mkdir($dataDir, 0755, true);
 if (!is_dir($dataDir . '/covers')) @mkdir($dataDir . '/covers', 0755, true);
 if (!file_exists($dataDir . '/.htaccess')) @file_put_contents($dataDir . '/.htaccess', "Require all denied\n");
@@ -157,6 +174,7 @@ function httpGet(string $url, int $timeout = 6): ?string {
     $body = curl_exec($ch);
     $code = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
     curl_close($ch);
+    $GLOBALS['lastHttpCode'] = $code; // 429（回数制限）かどうかを呼び出し側で見るため
     return ($body !== false && $code >= 200 && $code < 300) ? $body : null;
 }
 
@@ -185,9 +203,9 @@ function openbd(string $isbn): ?array {
 
 /** Google Books: 書名や著者 → 候補 */
 function googleBooks(string $q, int $max = 6): array {
-    $raw = httpGet('https://www.googleapis.com/books/v1/volumes?' . http_build_query([
-        'q' => $q, 'langRestrict' => 'ja', 'maxResults' => $max, 'printType' => 'books',
-    ]));
+    $params = ['q' => $q, 'langRestrict' => 'ja', 'maxResults' => $max, 'printType' => 'books'];
+    if (googleKey() !== '') $params['key'] = googleKey();
+    $raw = httpGet('https://www.googleapis.com/books/v1/volumes?' . http_build_query($params));
     $d = $raw ? json_decode($raw, true) : null;
     $out = [];
     foreach (($d['items'] ?? []) as $it) {
@@ -241,10 +259,20 @@ function resolveSome(PDO $db): void {
         $cover = $r['cover_url'];
         $price = $r['price'];
         if ($isbn === '') {
-            $q = 'intitle:"' . mb_substr($r['title'], 0, 40) . '"' . ($r['author'] !== '' ? ' inauthor:' . mb_substr(preg_split('/[・、,]/u', $r['author'])[0], 0, 20) : '');
-            foreach (googleBooks($q, 3) as $g) {
+            // intitle:/inauthor: 付きだと日本語の本はほぼ空振りするので、「書名 著者」の素直な語句で探す
+            $author = $r['author'] !== '' ? mb_substr(preg_split('/[・、,]/u', $r['author'])[0], 0, 20) : '';
+            $q = mb_substr($r['title'], 0, 40) . ($author !== '' ? ' ' . $author : '');
+            // 海外版（翻訳書など）が先に出ることがあるので、日本の ISBN（9784…）を優先する
+            $cands = googleBooks($q, 5);
+            usort($cands, fn($a, $b) => (int)(strpos($b['isbn'], '9784') === 0) - (int)(strpos($a['isbn'], '9784') === 0));
+            foreach ($cands as $g) {
                 if ($g['isbn'] !== '') { $isbn = $g['isbn']; if ($cover === '') $cover = $g['cover']; if ($price === null) $price = $g['price']; break; }
                 if ($cover === '' && $g['cover'] !== '') $cover = $g['cover'];
+            }
+            // Google の回数制限で失敗したときは、試行回数に数えない（後でやり直せるように）
+            if (($GLOBALS['lastHttpCode'] ?? 0) === 429) {
+                $db->prepare('UPDATE books SET resolve_tries = resolve_tries - 1 WHERE id = ?')->execute([$r['id']]);
+                continue;
             }
         }
         if ($isbn !== '') {
@@ -252,6 +280,16 @@ function resolveSome(PDO $db): void {
             if ($b) {
                 if ($b['cover'] !== '') $cover = $b['cover'];
                 if ($price === null && $b['price'] !== null) $price = $b['price'];
+            }
+            // openBD に表紙が無ければ、ISBN で Google Books を引いてサムネイルをもらう
+            if ($cover === '') {
+                foreach (googleBooks('isbn:' . $isbn, 1) as $g) {
+                    if ($g['cover'] !== '') { $cover = $g['cover']; break; }
+                }
+                if (($GLOBALS['lastHttpCode'] ?? 0) === 429) {
+                    $db->prepare('UPDATE books SET resolve_tries = resolve_tries - 1 WHERE id = ?')->execute([$r['id']]);
+                    continue;
+                }
             }
         }
         $db->prepare('UPDATE books SET isbn = ?, cover_url = ?, price = ? WHERE id = ?')->execute([$isbn, $cover, $price, $r['id']]);
