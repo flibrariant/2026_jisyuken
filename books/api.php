@@ -118,7 +118,9 @@ function state(PDO $db): array {
         $b['voters'] = $byBook[$b['id']] ?? [];
         $b['votes'] = count($b['voters']);
         // 表紙は同一オリジンのプロキシ経由（キャッシュ済みか、ISBN か URL が分かっていれば取りに行く）
-        $b['cover'] = ($b['cover_url'] !== '' || $b['isbn'] !== '') ? 'api.php?cover=' . rawurlencode($b['id']) : '';
+        // v= は ISBN と表紙URLから作る版番号。取り直しで画像が変わったら URL も変わり、ブラウザの古いキャッシュが残らない
+        $b['cover'] = ($b['cover_url'] !== '' || $b['isbn'] !== '')
+            ? 'api.php?cover=' . rawurlencode($b['id']) . '&v=' . substr(md5($b['isbn'] . '|' . $b['cover_url']), 0, 8) : '';
         unset($b['cover_url']);
     }
     return ['settings' => ['hearts' => HEARTS, 'maxObi' => MAX_OBI], 'books' => $books];
