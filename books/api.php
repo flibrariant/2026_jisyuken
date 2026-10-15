@@ -1,0 +1,294 @@
+<?php
+/**
+ * 本の銀河 バックエンド（PHP 1ファイル、SQLite）
+ *
+ * 置き方: books/ フォルダごとサーバーにアップロードするだけ。
+ * data/ フォルダに SQLite とキャッシュした表紙画像が溜まる（PHP から書き込める必要がある）。
+ *
+ * GET  api.php                 → 状態（本と「読みたい」の一覧）
+ * GET  api.php?lookup=書名     → 書誌の候補（Google Books → openBD で補完）
+ * GET  api.php?cover=本のID    → 表紙画像（同一オリジンで返すので WebGL のテクスチャに使える）
+ * POST api.php  {"action":"vote"|"unvote"|"addBook", ...}  → 状態
+ */
+
+declare(strict_types=1);
+
+const HEARTS = 3;             // 一人あたりの「読みたい」数
+const MAX_OBI = 100;          // 一言の最大文字数
+const RESOLVE_PER_REQUEST = 2; // 1リクエストあたり、表紙や定価を補完する本の数
+
+$dataDir = __DIR__ . '/data';
+if (!is_dir($dataDir)) @mkdir($dataDir, 0755, true);
+if (!is_dir($dataDir . '/covers')) @mkdir($dataDir . '/covers', 0755, true);
+if (!file_exists($dataDir . '/.htaccess')) @file_put_contents($dataDir . '/.htaccess', "Require all denied\n");
+
+header('Cache-Control: no-store');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Headers: Content-Type');
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') exit;
+
+try {
+    $db = openDb($dataDir . '/books.sqlite');
+    seedIfEmpty($db);
+
+    if (isset($_GET['cover'])) { serveCover($db, (string)$_GET['cover'], $dataDir . '/covers'); exit; }
+    if (isset($_GET['lookup'])) { json(['candidates' => lookup((string)$_GET['lookup'])]); exit; }
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $body = json_decode(file_get_contents('php://input') ?: '{}', true) ?: [];
+        $action = (string)($body['action'] ?? '');
+        if ($action === 'vote') vote($db, $body, true);
+        elseif ($action === 'unvote') vote($db, $body, false);
+        elseif ($action === 'addBook') addBook($db, $body);
+        else throw new RuntimeException('不明な操作です');
+    } else {
+        resolveSome($db);
+    }
+    json(state($db));
+} catch (Throwable $e) {
+    http_response_code(400);
+    json(['error' => $e->getMessage()]);
+}
+
+// ---------------------------------------------------------------- DB
+
+function openDb(string $path): PDO {
+    $db = new PDO('sqlite:' . $path);
+    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $db->exec('PRAGMA journal_mode=WAL');
+    $db->exec('CREATE TABLE IF NOT EXISTS books (
+        id TEXT PRIMARY KEY, title TEXT NOT NULL, author TEXT DEFAULT "", publisher TEXT DEFAULT "",
+        price INTEGER, isbn TEXT DEFAULT "", cover_url TEXT DEFAULT "", url TEXT DEFAULT "",
+        obi TEXT DEFAULT "", proposer TEXT DEFAULT "", resolve_tries INTEGER DEFAULT 0, created_at TEXT)');
+    $db->exec('CREATE TABLE IF NOT EXISTS votes (
+        book_id TEXT NOT NULL, name TEXT NOT NULL, created_at TEXT, PRIMARY KEY (book_id, name))');
+    return $db;
+}
+
+function seedIfEmpty(PDO $db): void {
+    if ((int)$db->query('SELECT COUNT(*) FROM books')->fetchColumn() > 0) return;
+    $seedFile = __DIR__ . '/seed.json';
+    if (!is_file($seedFile)) return;
+    $seeds = json_decode((string)file_get_contents($seedFile), true) ?: [];
+    $ins = $db->prepare('INSERT OR IGNORE INTO books (id,title,author,publisher,price,isbn,cover_url,url,obi,proposer,created_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?)');
+    $now = gmdate('c');
+    foreach ($seeds as $s) {
+        $ins->execute([
+            (string)($s['id'] ?? uniqid('b')), (string)($s['title'] ?? ''), (string)($s['author'] ?? ''), (string)($s['publisher'] ?? ''),
+            isset($s['price']) && $s['price'] !== null ? (int)$s['price'] : null, (string)($s['isbn'] ?? ''), (string)($s['cover'] ?? ''),
+            (string)($s['url'] ?? ''), (string)($s['obi'] ?? ''), (string)($s['proposer'] ?? ''), $now,
+        ]);
+    }
+}
+
+function state(PDO $db): array {
+    $books = $db->query('SELECT id,title,author,publisher,price,isbn,cover_url,url,obi,proposer,created_at FROM books ORDER BY created_at, id')->fetchAll(PDO::FETCH_ASSOC);
+    $votes = $db->query('SELECT book_id, name FROM votes ORDER BY created_at')->fetchAll(PDO::FETCH_ASSOC);
+    $byBook = [];
+    foreach ($votes as $v) $byBook[$v['book_id']][] = $v['name'];
+    foreach ($books as &$b) {
+        $b['price'] = $b['price'] === null ? null : (int)$b['price'];
+        $b['voters'] = $byBook[$b['id']] ?? [];
+        $b['votes'] = count($b['voters']);
+        // 表紙は同一オリジンのプロキシ経由（キャッシュ済みか、ISBN か URL が分かっていれば取りに行く）
+        $b['cover'] = ($b['cover_url'] !== '' || $b['isbn'] !== '') ? 'api.php?cover=' . rawurlencode($b['id']) : '';
+        unset($b['cover_url']);
+    }
+    return ['settings' => ['hearts' => HEARTS, 'maxObi' => MAX_OBI], 'books' => $books];
+}
+
+// ---------------------------------------------------------------- 操作
+
+function clean($v, int $max): string {
+    $s = preg_replace('/\s+/u', ' ', (string)($v ?? ''));
+    return mb_substr(trim($s), 0, $max);
+}
+
+function vote(PDO $db, array $body, bool $on): void {
+    $name = clean($body['name'] ?? '', 30);
+    $bookId = clean($body['bookId'] ?? '', 40);
+    if ($name === '') throw new RuntimeException('名前を入れてください');
+    $exists = $db->prepare('SELECT 1 FROM books WHERE id = ?');
+    $exists->execute([$bookId]);
+    if (!$exists->fetchColumn()) throw new RuntimeException('その本は見つかりません');
+    if ($on) {
+        $cnt = $db->prepare('SELECT COUNT(*) FROM votes WHERE name = ?');
+        $cnt->execute([$name]);
+        $has = $db->prepare('SELECT 1 FROM votes WHERE book_id = ? AND name = ?');
+        $has->execute([$bookId, $name]);
+        if (!$has->fetchColumn() && (int)$cnt->fetchColumn() >= HEARTS) throw new RuntimeException('「読みたい」は' . HEARTS . '冊までです。どれかを外してください');
+        $db->prepare('INSERT OR IGNORE INTO votes (book_id, name, created_at) VALUES (?,?,?)')->execute([$bookId, $name, gmdate('c')]);
+    } else {
+        $db->prepare('DELETE FROM votes WHERE book_id = ? AND name = ?')->execute([$bookId, $name]);
+    }
+}
+
+function addBook(PDO $db, array $body): void {
+    $title = clean($body['title'] ?? '', 120);
+    $name = clean($body['name'] ?? '', 30);
+    $obi = clean($body['obi'] ?? '', MAX_OBI);
+    if ($title === '') throw new RuntimeException('タイトルを入れてください');
+    if ($name === '') throw new RuntimeException('名前を入れてください');
+    if ($obi === '') throw new RuntimeException('ひとこと（推薦の言葉）を入れてください');
+    $isbn = preg_replace('/[^0-9X]/', '', (string)($body['isbn'] ?? ''));
+    $cover = (string)($body['cover'] ?? '');
+    if ($cover !== '' && !preg_match('#^https?://#', $cover)) $cover = '';
+    $url = (string)($body['url'] ?? '');
+    if ($url !== '' && !preg_match('#^https?://#', $url)) $url = '';
+    $price = isset($body['price']) && is_numeric($body['price']) && (int)$body['price'] > 0 ? (int)$body['price'] : null;
+    $dup = $db->prepare('SELECT id FROM books WHERE (isbn != "" AND isbn = ?) OR title = ?');
+    $dup->execute([$isbn, $title]);
+    if ($dup->fetchColumn()) throw new RuntimeException('その本はもう登録されています');
+    $id = 'b' . substr(bin2hex(random_bytes(6)), 0, 10);
+    $db->prepare('INSERT INTO books (id,title,author,publisher,price,isbn,cover_url,url,obi,proposer,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+        ->execute([$id, $title, clean($body['author'] ?? '', 80), clean($body['publisher'] ?? '', 60), $price, $isbn, $cover, mb_substr($url, 0, 300), $obi, $name, gmdate('c')]);
+}
+
+// ---------------------------------------------------------------- 書誌の補完
+
+function httpGet(string $url, int $timeout = 6): ?string {
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_MAXREDIRS => 3,
+        CURLOPT_TIMEOUT => $timeout, CURLOPT_CONNECTTIMEOUT => 4,
+        CURLOPT_USERAGENT => 'jisyuken-book-galaxy/1.0',
+    ]);
+    $body = curl_exec($ch);
+    $code = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    curl_close($ch);
+    return ($body !== false && $code >= 200 && $code < 300) ? $body : null;
+}
+
+/** openBD: ISBN → 書誌（title, author, publisher, price, cover） */
+function openbd(string $isbn): ?array {
+    $raw = httpGet('https://api.openbd.jp/v1/get?isbn=' . rawurlencode($isbn));
+    $d = $raw ? json_decode($raw, true) : null;
+    if (!is_array($d) || empty($d[0]) || empty($d[0]['summary'])) return null;
+    $s = $d[0]['summary'];
+    $price = null;
+    $prices = $d[0]['onix']['ProductSupply']['SupplyDetail']['Price'] ?? [];
+    foreach ($prices as $p) {
+        if (!empty($p['PriceAmount'])) {
+            $amount = (float)$p['PriceAmount'];
+            $type = (string)($p['PriceType'] ?? '');
+            // 01/03 は本体価格、02/04 は税込。本体なら10%を足す
+            $price = (int)round(in_array($type, ['01', '03'], true) ? $amount * 1.1 : $amount);
+            break;
+        }
+    }
+    return [
+        'title' => (string)($s['title'] ?? ''), 'author' => (string)($s['author'] ?? ''), 'publisher' => (string)($s['publisher'] ?? ''),
+        'isbn' => (string)($s['isbn'] ?? $isbn), 'cover' => (string)($s['cover'] ?? ''), 'price' => $price,
+    ];
+}
+
+/** Google Books: 書名や著者 → 候補 */
+function googleBooks(string $q, int $max = 6): array {
+    $raw = httpGet('https://www.googleapis.com/books/v1/volumes?' . http_build_query([
+        'q' => $q, 'langRestrict' => 'ja', 'maxResults' => $max, 'printType' => 'books',
+    ]));
+    $d = $raw ? json_decode($raw, true) : null;
+    $out = [];
+    foreach (($d['items'] ?? []) as $it) {
+        $v = $it['volumeInfo'] ?? [];
+        $isbn = '';
+        foreach (($v['industryIdentifiers'] ?? []) as $idn) if (($idn['type'] ?? '') === 'ISBN_13') $isbn = (string)$idn['identifier'];
+        $thumb = (string)(($v['imageLinks']['thumbnail'] ?? '') ?: ($v['imageLinks']['smallThumbnail'] ?? ''));
+        $thumb = preg_replace('#^http://#', 'https://', $thumb);
+        $price = $it['saleInfo']['listPrice']['amount'] ?? null;
+        $out[] = [
+            'title' => trim((string)($v['title'] ?? '') . (isset($v['subtitle']) ? ' ' . $v['subtitle'] : '')),
+            'author' => implode('・', $v['authors'] ?? []), 'publisher' => (string)($v['publisher'] ?? ''),
+            'isbn' => $isbn, 'cover' => $thumb, 'price' => $price !== null ? (int)round((float)$price) : null,
+            'date' => (string)($v['publishedDate'] ?? ''),
+        ];
+    }
+    return $out;
+}
+
+function lookup(string $q): array {
+    $q = clean($q, 120);
+    if ($q === '') return [];
+    $digits = preg_replace('/[^0-9X]/', '', $q);
+    $cands = [];
+    if (strlen($digits) === 13 || strlen($digits) === 10) {
+        $b = openbd($digits);
+        if ($b) $cands[] = $b;
+    }
+    foreach (googleBooks($q) as $g) {
+        if ($g['isbn'] !== '') {
+            $b = openbd($g['isbn']);
+            if ($b) {
+                if ($b['cover'] === '') $b['cover'] = $g['cover'];
+                if ($b['price'] === null) $b['price'] = $g['price'];
+                $g = array_merge($g, array_filter($b, fn($x) => $x !== '' && $x !== null));
+            }
+        }
+        $cands[] = $g;
+        if (count($cands) >= 6) break;
+    }
+    return $cands;
+}
+
+/** 表紙や定価が欠けている本を、少しずつ補完する（1リクエストに数冊まで、各本3回まで試す） */
+function resolveSome(PDO $db): void {
+    $rows = $db->query('SELECT id,title,author,isbn,cover_url,price FROM books
+        WHERE (cover_url = "" OR price IS NULL OR isbn = "") AND resolve_tries < 3 ORDER BY resolve_tries, created_at LIMIT ' . RESOLVE_PER_REQUEST)->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($rows as $r) {
+        $db->prepare('UPDATE books SET resolve_tries = resolve_tries + 1 WHERE id = ?')->execute([$r['id']]);
+        $isbn = $r['isbn'];
+        $cover = $r['cover_url'];
+        $price = $r['price'];
+        if ($isbn === '') {
+            $q = 'intitle:"' . mb_substr($r['title'], 0, 40) . '"' . ($r['author'] !== '' ? ' inauthor:' . mb_substr(preg_split('/[・、,]/u', $r['author'])[0], 0, 20) : '');
+            foreach (googleBooks($q, 3) as $g) {
+                if ($g['isbn'] !== '') { $isbn = $g['isbn']; if ($cover === '') $cover = $g['cover']; if ($price === null) $price = $g['price']; break; }
+                if ($cover === '' && $g['cover'] !== '') $cover = $g['cover'];
+            }
+        }
+        if ($isbn !== '') {
+            $b = openbd($isbn);
+            if ($b) {
+                if ($b['cover'] !== '') $cover = $b['cover'];
+                if ($price === null && $b['price'] !== null) $price = $b['price'];
+            }
+        }
+        $db->prepare('UPDATE books SET isbn = ?, cover_url = ?, price = ? WHERE id = ?')->execute([$isbn, $cover, $price, $r['id']]);
+    }
+}
+
+/** 表紙画像を同一オリジンで返す（初回に取得してキャッシュ） */
+function serveCover(PDO $db, string $id, string $dir): void {
+    $id = preg_replace('/[^A-Za-z0-9_-]/', '', $id);
+    $file = $dir . '/' . $id . '.jpg';
+    if (!is_file($file)) {
+        $st = $db->prepare('SELECT isbn, cover_url FROM books WHERE id = ?');
+        $st->execute([$id]);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$row) { http_response_code(404); exit; }
+        $urls = [];
+        if ($row['cover_url'] !== '') $urls[] = $row['cover_url'];
+        if ($row['isbn'] !== '') {
+            $urls[] = 'https://cover.openbd.jp/' . $row['isbn'] . '.jpg';
+            $urls[] = 'https://ndlsearch.ndl.go.jp/thumbnail/' . $row['isbn'] . '.jpg';
+        }
+        $img = null;
+        foreach ($urls as $u) {
+            $img = httpGet($u, 8);
+            if ($img !== null && strlen($img) > 1000) break;
+            $img = null;
+        }
+        if ($img === null) { http_response_code(404); exit; }
+        @file_put_contents($file, $img);
+    }
+    $info = @getimagesize($file);
+    header('Content-Type: ' . ($info['mime'] ?? 'image/jpeg'));
+    header('Cache-Control: public, max-age=604800');
+    readfile($file);
+}
+
+function json(array $data): void {
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+}
