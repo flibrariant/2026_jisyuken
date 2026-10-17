@@ -81,6 +81,10 @@
     .desc.open p { display: block; -webkit-line-clamp: unset; }
     .desc button { margin-top: 4px; padding: 0; border: 0; background: none; color: var(--blue); font-size: 12px; cursor: pointer; }
     .desc small { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
+    /* AI が書いた紹介は枠と色を変えて、出版社の紹介文と見分けがつくようにする */
+    .desc.ai { padding: 10px 12px; border-radius: 12px; border: 1px dashed rgba(91,140,255,.5); background: rgba(91,140,255,.07); }
+    .desc.ai h3 { color: #9fb6ff; }
+    .desc.ai small { color: #9fb6ff; opacity: .85; }
     .obi { margin: 12px 0 0; padding: 10px 12px; border-left: 3px solid var(--accent); background: rgba(255,216,90,.08); border-radius: 0 10px 10px 0; font-size: 14px; }
     .obi small { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; }
     .voters { margin: 10px 0 0; font-size: 12px; color: var(--muted); }
@@ -628,6 +632,12 @@
       $('nameNote').textContent = (hearts > 0 ? '「読みたい」は一人' + hearts + '冊まで。' : '「読みたい」は何冊でも。') + '名前はこの端末に覚えておきます。';
     }
 
+    // 内容紹介の出どころ（api.php の desc_src）。AI が書いたものは本の実際の内容と違うことがあるので必ず明示する
+    function descSource(src) {
+      return { openbd: '出版社の紹介文より（openBD）', rakuten: '楽天ブックスの紹介文より', google: 'Google Books の紹介文より', ndl: '国立国会図書館の書誌より',
+        ai: 'この紹介は、紹介文が見つからなかったため AI（Claude）が書名・著者・出版社から書いたものです。実際の内容と異なることがあります。' }[src] || '出版社・書店の紹介文より';
+    }
+
     function renderDetail(id) {
       const b = state.books.find((x) => x.id === id); if (!b) return;
       const mine = myName && b.voters.includes(myName);
@@ -655,7 +665,7 @@
           </div>
         </div>
         <div class="obi">${esc(b.obi || '')}<small>── ${esc(b.proposer || '')}</small></div>
-        ${b.description ? `<div class="desc" id="desc"><h3>内容紹介</h3><p>${esc(b.description)}</p>${b.description.length > 140 ? '<button type="button" id="descMore">もっと読む</button>' : ''}<small>出版社・Google Books の紹介文より</small></div>` : ''}
+        ${b.description ? `<div class="desc ${b.desc_src === 'ai' ? 'ai' : ''}" id="desc"><h3>${b.desc_src === 'ai' ? '🤖 AIが書いた紹介' : '内容紹介'}</h3><p>${esc(b.description)}</p>${b.description.length > 140 ? '<button type="button" id="descMore">もっと読む</button>' : ''}<small>${descSource(b.desc_src)}</small></div>` : ''}
         <p class="voters">${b.voters.length ? '読みたい：' + b.voters.map((n) => `<span>${esc(n)}</span>`).join('') : 'まだ誰も「読みたい」していません。最初の一人になる？'}</p>
         <div class="actions">
           <button class="btn heart ${mine ? 'on' : ''}" type="button" data-vote="${esc(b.id)}">${mine ? '♥ 読みたい済み（外す）' : '♥ 読みたい'}</button>

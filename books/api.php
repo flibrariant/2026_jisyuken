@@ -36,6 +36,23 @@ function googleKey(): string {
     return $key;
 }
 
+/** data/ のファイルか環境変数から秘密のキーを読む（無ければ空） */
+function secret(string $env, string $file): string {
+    static $cache = [];
+    if (!isset($cache[$file])) {
+        $v = trim((string)getenv($env));
+        if ($v === '') { $f = __DIR__ . '/data/' . $file; $v = is_file($f) ? trim((string)@file_get_contents($f)) : ''; }
+        $cache[$file] = $v;
+    }
+    return $cache[$file];
+}
+/** 楽天ブックス API のアプリ ID（数字）: 環境変数 RAKUTEN_APP_ID か data/rakuten_app_id.txt */
+function rakutenId(): string { return secret('RAKUTEN_APP_ID', 'rakuten_app_id.txt'); }
+/** 楽天ブックス API のアクセスキー（pk_… で始まる。新仕様ではアプリ ID と両方必要）: 環境変数 RAKUTEN_ACCESS_KEY か data/rakuten_access_key.txt */
+function rakutenKey(): string { return secret('RAKUTEN_ACCESS_KEY', 'rakuten_access_key.txt'); }
+/** Claude API キー（任意。紹介文がどこにも無い本の紹介文を生成する）: 環境変数 ANTHROPIC_API_KEY か data/anthropic_key.txt */
+function anthropicKey(): string { return secret('ANTHROPIC_API_KEY', 'anthropic_key.txt'); }
+
 if (!is_dir($dataDir)) @mkdir($dataDir, 0755, true);
 if (!is_dir($dataDir . '/covers')) @mkdir($dataDir . '/covers', 0755, true);
 if (!file_exists($dataDir . '/.htaccess')) @file_put_contents($dataDir . '/.htaccess', "Require all denied\n");
@@ -91,7 +108,7 @@ function openDb(string $path): PDO {
         book_id TEXT NOT NULL, name TEXT NOT NULL, created_at TEXT, PRIMARY KEY (book_id, name))');
     // あとから足した列（古い DB にも追加する）
     $cols = array_column($db->query('PRAGMA table_info(books)')->fetchAll(PDO::FETCH_ASSOC), 'name');
-    foreach (['description' => 'TEXT DEFAULT ""', 'pubdate' => 'TEXT DEFAULT ""', 'pages' => 'INTEGER'] as $col => $type) {
+    foreach (['description' => 'TEXT DEFAULT ""', 'pubdate' => 'TEXT DEFAULT ""', 'pages' => 'INTEGER', 'desc_src' => 'TEXT DEFAULT ""'] as $col => $type) {
         if (!in_array($col, $cols, true)) $db->exec("ALTER TABLE books ADD COLUMN $col $type");
     }
     return $db;
@@ -115,7 +132,7 @@ function seedIfEmpty(PDO $db): void {
 }
 
 function state(PDO $db): array {
-    $books = $db->query('SELECT id,title,author,publisher,price,isbn,cover_url,url,obi,proposer,created_at,description,pubdate,pages FROM books ORDER BY created_at, id')->fetchAll(PDO::FETCH_ASSOC);
+    $books = $db->query('SELECT id,title,author,publisher,price,isbn,cover_url,url,obi,proposer,created_at,description,pubdate,pages,desc_src FROM books ORDER BY created_at, id')->fetchAll(PDO::FETCH_ASSOC);
     $votes = $db->query('SELECT book_id, name FROM votes ORDER BY created_at')->fetchAll(PDO::FETCH_ASSOC);
     $byBook = [];
     foreach ($votes as $v) $byBook[$v['book_id']][] = $v['name'];
@@ -124,6 +141,7 @@ function state(PDO $db): array {
         $b['pages'] = $b['pages'] === null ? null : (int)$b['pages'];
         $b['description'] = (string)($b['description'] ?? '');
         $b['pubdate'] = (string)($b['pubdate'] ?? '');
+        $b['desc_src'] = (string)($b['desc_src'] ?? ''); // openbd / rakuten / google / ndl / ai
         $b['voters'] = $byBook[$b['id']] ?? [];
         $b['votes'] = count($b['voters']);
         // 表紙は同一オリジンのプロキシ経由（キャッシュ済みか、ISBN か URL が分かっていれば取りに行く）
@@ -191,6 +209,7 @@ function httpGet(string $url, int $timeout = 6, array $headers = []): ?string {
         CURLOPT_TIMEOUT => $timeout, CURLOPT_CONNECTTIMEOUT => 4,
         CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; jisyuken-book-galaxy/1.0)',
         CURLOPT_HTTPHEADER => $headers,
+        CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4, // 楽天 API は許可 IP で制限するので、IPv6 ではなく登録した IPv4 で出る
     ]);
     $body = curl_exec($ch);
     $code = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
@@ -322,7 +341,7 @@ function cleanDesc(string $s): string {
 
 /** 発行年月をそろえる（"20240417" → "2024.4"、"2024-04-17" → "2024.4"、"2024.4" はそのまま） */
 function normDate(string $s): string {
-    if (preg_match('/^(\d{4})[-.\/]?(\d{1,2})/', $s, $m)) return $m[1] . '.' . (int)$m[2];
+    if (preg_match('/^(\d{4})[-.\/年]?(\d{1,2})/u', $s, $m)) return $m[1] . '.' . (int)$m[2];
     if (preg_match('/^(\d{4})/', $s, $m)) return $m[1];
     return '';
 }
@@ -352,6 +371,72 @@ function googleBooks(string $q, int $max = 6): array {
     return $out;
 }
 
+/** JSON を POST して本文を返す（失敗は null）。$GLOBALS['lastHttpCode'] に状態コードを残す */
+function httpPost(string $url, array $json, array $headers, int $timeout = 40): ?string {
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true, CURLOPT_POST => true, CURLOPT_POSTFIELDS => json_encode($json, JSON_UNESCAPED_UNICODE),
+        CURLOPT_TIMEOUT => $timeout, CURLOPT_CONNECTTIMEOUT => 6,
+        CURLOPT_HTTPHEADER => array_merge(['Content-Type: application/json'], $headers),
+    ]);
+    $body = curl_exec($ch);
+    $code = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    curl_close($ch);
+    $GLOBALS['lastHttpCode'] = $code;
+    return ($body !== false && $code >= 200 && $code < 300) ? $body : null;
+}
+
+/**
+ * 楽天ブックス: ISBN か 書名（＋著者）→ 候補（title, author, publisher, isbn, cover, price, description, date）
+ * 出版社の紹介文（itemCaption）と表紙画像が揃っていて、日本の本の網羅性が高い。アプリ ID が無ければ空
+ */
+function rakutenBooks(array $q, int $max = 5): array {
+    if (rakutenId() === '' || rakutenKey() === '') return [];
+    $params = array_merge(['applicationId' => rakutenId(), 'accessKey' => rakutenKey(), 'format' => 'json', 'formatVersion' => 2, 'hits' => $max, 'booksGenreId' => '001'], $q);
+    $raw = httpGet('https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404?' . http_build_query($params), 10);
+    $d = $raw ? json_decode($raw, true) : null;
+    $out = [];
+    foreach (($d['Items'] ?? []) as $it) {
+        $isbn = preg_replace('/[^0-9X]/', '', (string)($it['isbn'] ?? ''));
+        // 画像 URL の末尾の "?_ex=200x200" を外すと元の大きさになる
+        $cover = preg_replace('/\?_ex=\d+x\d+$/', '', (string)($it['largeImageUrl'] ?? ''));
+        $out[] = [
+            'title' => trim((string)($it['title'] ?? '') . (!empty($it['subTitle']) ? ' ' . $it['subTitle'] : '')),
+            'author' => str_replace('/', '・', (string)($it['author'] ?? '')), 'publisher' => (string)($it['publisherName'] ?? ''),
+            'isbn' => $isbn, 'cover' => $cover, 'price' => !empty($it['itemPrice']) ? (int)$it['itemPrice'] : null,
+            'description' => cleanDesc((string)($it['itemCaption'] ?? '')), 'date' => (string)($it['salesDate'] ?? ''), 'pages' => null,
+        ];
+    }
+    return $out;
+}
+
+/**
+ * どこにも紹介文が無い本のために、Claude に短い紹介文を書いてもらう（画面では「AIが書いた紹介」と明示する）。
+ * 書誌（書名・著者・出版社・発行年）だけを渡し、知らない本については一般的な説明にとどめるよう指示する。失敗は空
+ */
+function aiDescription(string $title, string $author, string $publisher, string $pubdate): string {
+    if (anthropicKey() === '' || $title === '') return '';
+    $meta = "書名: {$title}\n著者: " . ($author !== '' ? $author : '不明') . "\n出版社: " . ($publisher !== '' ? $publisher : '不明') . "\n発行: " . ($pubdate !== '' ? $pubdate : '不明');
+    // claude-opus-5-5: 1 冊あたり 0.3 円ほど（入力 $4 / 出力 $20 per 1M tokens）。fallbacks は安全判定で断られたときの自動切り替え
+    $raw = httpPost('https://api.anthropic.com/v1/messages', [
+        'model' => 'claude-opus-5-5',
+        'max_tokens' => 600,
+        'output_config' => ['effort' => 'low'],
+        'fallbacks' => 'default',
+        'system' => "あなたは図書館の司書です。読書会のメンバーが本を選ぶときに読む「内容紹介」を日本語で書きます。\n"
+            . "ルール: 3〜4文、200字以内。本文だけを出力し、前置きや見出しは付けない。\n"
+            . "その本を確実に知っている場合は、何について書かれた本で、どんな読者に向くかを書く。\n"
+            . "確信が持てない場合は、書名と著者から分かる範囲の一般的な説明にとどめ、具体的な章立て・数字・エピソードを作り出さない。\n"
+            . "賞や売上などの実績は、確実に知っているもの以外は書かない。",
+        'messages' => [['role' => 'user', 'content' => "次の本の内容紹介を書いてください。\n{$meta}"]],
+    ], ['x-api-key: ' . anthropicKey(), 'anthropic-version: 2023-06-01', 'anthropic-beta: server-side-fallback-2026-07-01'], 60);
+    $d = $raw ? json_decode($raw, true) : null;
+    if (!is_array($d) || ($d['stop_reason'] ?? '') === 'refusal') return '';
+    $text = '';
+    foreach (($d['content'] ?? []) as $blk) if (($blk['type'] ?? '') === 'text') $text .= (string)($blk['text'] ?? '');
+    return cleanDesc($text);
+}
+
 function lookup(string $q): array {
     $q = clean($q, 120);
     if ($q === '') return [];
@@ -367,6 +452,8 @@ function lookup(string $q): array {
         if ($b) { if ($n['price'] === null) $n['price'] = $b['price']; if ($b['cover'] !== '') $n['cover'] = $b['cover']; }
         $cands[] = $n;
     }
+    // 楽天ブックス: 紹介文と表紙が揃った候補（アプリ ID がある場合だけ）
+    foreach (rakutenBooks(['title' => $q], 4) as $k) if ($k['isbn'] !== '') $cands[] = $k;
     foreach (googleBooks($q) as $g) {
         if ($g['isbn'] !== '') {
             $b = openbd($g['isbn']);
@@ -384,8 +471,8 @@ function lookup(string $q): array {
 
 /** 表紙や定価が欠けている本を、少しずつ補完する（1リクエストに数冊まで、各本5回まで試す。NDL が遅くて失敗することがあるため多め） */
 function resolveSome(PDO $db): void {
-    $rows = $db->query('SELECT id,title,author,isbn,cover_url,price,description,pubdate,pages FROM books
-        WHERE (cover_url = "" OR price IS NULL OR isbn = "" OR description = "" OR pubdate = "") AND resolve_tries < 5
+    $rows = $db->query('SELECT id,title,author,publisher,isbn,cover_url,price,description,pubdate,pages,desc_src FROM books
+        WHERE (cover_url = "" OR price IS NULL OR isbn = "" OR description IS NULL OR description = "" OR pubdate IS NULL OR pubdate = "") AND resolve_tries < 5
         ORDER BY resolve_tries, created_at LIMIT ' . RESOLVE_PER_REQUEST)->fetchAll(PDO::FETCH_ASSOC);
     foreach ($rows as $r) {
         $db->prepare('UPDATE books SET resolve_tries = resolve_tries + 1 WHERE id = ?')->execute([$r['id']]);
@@ -395,11 +482,12 @@ function resolveSome(PDO $db): void {
         $desc = (string)($r['description'] ?? '');
         $pubdate = (string)($r['pubdate'] ?? '');
         $pages = $r['pages'] !== null ? (int)$r['pages'] : null;
-        $take = function (array $src) use (&$cover, &$price, &$desc, &$pubdate, &$pages): void {
+        $descSrc = (string)($r['desc_src'] ?? '');
+        $take = function (array $src, string $from = '') use (&$cover, &$price, &$desc, &$pubdate, &$pages, &$descSrc): void {
             // 欠けているものだけ候補から埋める
             if ($cover === '' && ($src['cover'] ?? '') !== '') $cover = $src['cover'];
             if ($price === null && ($src['price'] ?? null) !== null) $price = $src['price'];
-            if ($desc === '' && ($src['description'] ?? '') !== '') $desc = $src['description'];
+            if ($desc === '' && ($src['description'] ?? '') !== '') { $desc = $src['description']; $descSrc = $from; }
             if ($pubdate === '' && normDate((string)($src['pubdate'] ?? $src['date'] ?? '')) !== '') $pubdate = normDate((string)($src['pubdate'] ?? $src['date'] ?? ''));
             if ($pages === null && !empty($src['pages'])) $pages = (int)$src['pages'];
         };
@@ -416,14 +504,20 @@ function resolveSome(PDO $db): void {
                 if (!$hits && $author !== '') $hits = array_filter(ndlSearch($t, '', 5), fn($n) => titleMatches($r['title'], $n['title']) && authorMatches($r['author'], $n['author']));
                 if ($hits) break;
             }
-            foreach ($hits as $n) { $isbn = $n['isbn']; $take($n); break; }
+            foreach ($hits as $n) { $isbn = $n['isbn']; $take($n, 'ndl'); break; }
+            // 1b) 楽天ブックス: NDL で見つからなければ書名＋著者で探す（紹介文・表紙・定価も一度に取れる）
+            if ($isbn === '') {
+                foreach (rakutenBooks(['title' => mb_substr($r['title'], 0, 40), 'author' => $author], 5) as $k) {
+                    if ($k['isbn'] !== '' && titleMatches($r['title'], $k['title']) && authorMatches($r['author'], $k['author'])) { $isbn = $k['isbn']; $take($k, 'rakuten'); break; }
+                }
+            }
             // 2) Google: NDL で見つからなければ「書名 著者」で探す。書名一致のものだけ、日本の ISBN（9784…）を優先
             if ($isbn === '') {
                 $q = mb_substr($r['title'], 0, 40) . ($author !== '' ? ' ' . $author : '');
                 $cands = array_filter(googleBooks($q, 5), fn($g) => titleMatches($r['title'], $g['title']) && authorMatches($r['author'], $g['author']));
                 usort($cands, fn($a, $b) => (int)(strpos($b['isbn'], '9784') === 0) - (int)(strpos($a['isbn'], '9784') === 0));
                 foreach ($cands as $g) {
-                    if ($g['isbn'] !== '') { $isbn = $g['isbn']; $take($g); break; }
+                    if ($g['isbn'] !== '') { $isbn = $g['isbn']; $take($g, 'google'); break; }
                     if ($cover === '' && $g['cover'] !== '') $cover = $g['cover'];
                 }
                 // Google の回数制限で失敗したときは、試行回数に数えない（後でやり直せるように）
@@ -436,11 +530,16 @@ function resolveSome(PDO $db): void {
         if ($isbn !== '') {
             // openBD: 版元の内容紹介・定価・発行年月・ページ数（表紙は openBD を優先）
             $b = openbd($isbn);
-            if ($b) { if ($b['cover'] !== '') $cover = $b['cover']; $take($b); }
+            if ($b) { if ($b['cover'] !== '') $cover = $b['cover']; $take($b, 'openbd'); }
+            // 楽天ブックス: 出版社の紹介文・表紙・定価・発売日（ISBN で確実に引ける）
+            if ($cover === '' || $desc === '' || $price === null || $pubdate === '') {
+                foreach (rakutenBooks(['isbn' => $isbn], 1) as $k) $take($k, 'rakuten');
+            }
             // まだ欠けていれば Google Books を引く（表紙サムネイル、紹介文、ページ数）。
             // 日本の本は isbn: 検索に出ないことが多いので、書名（＋著者）検索で書名・著者が一致する候補からも採る（ISBN が無くても可）
             if ($cover === '' || $desc === '' || $pages === null || $pubdate === '') {
-                foreach (googleBooks('isbn:' . $isbn, 1) as $g) { $take($g); break; }
+                // Google は同じ本を複数レコードで持ち、紹介文が付くのは 2 件目以降のことが多い。全件見て欠けている項目を順に埋める
+                foreach (googleBooks('isbn:' . $isbn, 5) as $g) $take($g, 'google');
                 if (($GLOBALS['lastHttpCode'] ?? 0) === 429) {
                     $db->prepare('UPDATE books SET resolve_tries = resolve_tries - 1 WHERE id = ?')->execute([$r['id']]);
                     continue;
@@ -448,8 +547,8 @@ function resolveSome(PDO $db): void {
                 if ($desc === '' || $pages === null) {
                     $author = $r['author'] !== '' ? mb_substr(preg_split('/[・、,]/u', $r['author'])[0], 0, 20) : '';
                     $q = mb_substr($r['title'], 0, 40) . ($author !== '' ? ' ' . $author : '');
-                    foreach (googleBooks($q, 5) as $g) {
-                        if (titleMatches($r['title'], $g['title']) && authorMatches($r['author'], $g['author'])) { $take(['description' => $g['description'], 'pages' => $g['pages'], 'date' => $g['date']]); break; }
+                    foreach (googleBooks($q, 10) as $g) {
+                        if (titleMatches($r['title'], $g['title']) && authorMatches($r['author'], $g['author'])) $take(['description' => $g['description'], 'pages' => $g['pages'], 'date' => $g['date']], 'google');
                     }
                     if (($GLOBALS['lastHttpCode'] ?? 0) === 429) {
                         $db->prepare('UPDATE books SET resolve_tries = resolve_tries - 1 WHERE id = ?')->execute([$r['id']]);
@@ -458,8 +557,13 @@ function resolveSome(PDO $db): void {
                 }
             }
         }
-        $db->prepare('UPDATE books SET isbn = ?, cover_url = ?, price = ?, description = ?, pubdate = ?, pages = ? WHERE id = ?')
-            ->execute([$isbn, $cover, $price, $desc, $pubdate, $pages, $r['id']]);
+        // 最後の手段: どの取得元にも紹介文が無ければ Claude に書いてもらう（desc_src = 'ai' で画面に明示）
+        if ($desc === '' && anthropicKey() !== '') {
+            $ai = aiDescription($r['title'], $r['author'], (string)($r['publisher'] ?? ''), $pubdate);
+            if ($ai !== '') { $desc = $ai; $descSrc = 'ai'; }
+        }
+        $db->prepare('UPDATE books SET isbn = ?, cover_url = ?, price = ?, description = ?, pubdate = ?, pages = ?, desc_src = ? WHERE id = ?')
+            ->execute([$isbn, $cover, $price, $desc, $pubdate, $pages, $descSrc, $r['id']]);
     }
 }
 
