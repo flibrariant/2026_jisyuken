@@ -17,6 +17,7 @@ const HEARTS = 0;             // 一人あたりの「読みたい」数（0 = �
 const MAX_DESC = 800;         // 内容紹介の最大文字数
 const MAX_TAGS = 3;           // 1冊あたりの自由タグの数
 const MAX_COMMENT = 60;       // 「読みたい」に添える一言の最大文字数
+const MAX_VOICE = 200;        // ひとこと（声）の最大文字数
 
 /**
  * 大分類（日本十進分類 NDC の先頭から機械的に決める）。鍵は保存用、値は画面の表示名。
@@ -126,6 +127,8 @@ try {
         elseif ($action === 'addBook') addBook($db, $body);
         elseif ($action === 'tags') setTags($db, $body);
         elseif ($action === 'genre') setGenre($db, $body);
+        elseif ($action === 'say') say($db, $body);
+        elseif ($action === 'unsay') unsay($db, $body);
         else throw new RuntimeException('不明な操作です');
         json(state($db));
     } else {
@@ -163,6 +166,9 @@ function openDb(string $path): PDO {
               'ndc' => 'TEXT DEFAULT ""', 'genre' => 'TEXT DEFAULT ""', 'tags' => 'TEXT DEFAULT "[]"'] as $col => $type) {
         if (!in_array($col, $cols, true)) $db->exec("ALTER TABLE books ADD COLUMN $col $type");
     }
+    // ひとこと（声）: 誰でも何度でも本に言葉を残せる。読みたいの一言（votes.comment）と浮かべた人の帯（books.obi）とは立場が違うので別に持つ
+    $db->exec('CREATE TABLE IF NOT EXISTS voices (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, book_id TEXT NOT NULL, name TEXT NOT NULL, text TEXT NOT NULL, created_at TEXT)');
     $vcols = array_column($db->query('PRAGMA table_info(votes)')->fetchAll(PDO::FETCH_ASSOC), 'name');
     if (!in_array('comment', $vcols, true)) $db->exec('ALTER TABLE votes ADD COLUMN comment TEXT DEFAULT ""');
     return $db;
@@ -187,9 +193,13 @@ function seedIfEmpty(PDO $db): void {
 
 function state(PDO $db): array {
     $books = $db->query('SELECT id,title,author,publisher,price,isbn,cover_url,url,obi,proposer,created_at,description,pubdate,pages,desc_src,ndc,genre,tags FROM books ORDER BY created_at, id')->fetchAll(PDO::FETCH_ASSOC);
-    $votes = $db->query('SELECT book_id, name, comment FROM votes ORDER BY created_at')->fetchAll(PDO::FETCH_ASSOC);
+    $votes = $db->query('SELECT book_id, name, comment, created_at FROM votes ORDER BY created_at')->fetchAll(PDO::FETCH_ASSOC);
     $byBook = [];
-    foreach ($votes as $v) $byBook[$v['book_id']][] = ['name' => $v['name'], 'comment' => (string)($v['comment'] ?? '')];
+    foreach ($votes as $v) $byBook[$v['book_id']][] = ['name' => $v['name'], 'comment' => (string)($v['comment'] ?? ''), 'created_at' => (string)($v['created_at'] ?? '')];
+    $voicesBy = [];
+    foreach ($db->query('SELECT id, book_id, name, text, created_at FROM voices ORDER BY created_at, id')->fetchAll(PDO::FETCH_ASSOC) as $v) {
+        $voicesBy[$v['book_id']][] = ['id' => (int)$v['id'], 'name' => $v['name'], 'text' => $v['text'], 'created_at' => (string)$v['created_at']];
+    }
     $tagCount = [];
     foreach ($books as &$b) {
         $b['price'] = $b['price'] === null ? null : (int)$b['price'];
@@ -203,6 +213,7 @@ function state(PDO $db): array {
         $b['tags'] = json_decode((string)($b['tags'] ?? '[]'), true) ?: [];
         foreach ($b['tags'] as $t) $tagCount[$t] = ($tagCount[$t] ?? 0) + 1;
         $b['voters'] = $byBook[$b['id']] ?? [];
+        $b['voices'] = $voicesBy[$b['id']] ?? [];
         $b['votes'] = count($b['voters']);
         // 表紙は同一オリジンのプロキシ経由（キャッシュ済みか、ISBN か URL が分かっていれば取りに行く）
         // v= は ISBN と表紙URLから作る版番号。取り直しで画像が変わったら URL も変わり、ブラウザの古いキャッシュが残らない
@@ -211,7 +222,7 @@ function state(PDO $db): array {
         unset($b['cover_url']);
     }
     arsort($tagCount);
-    return ['settings' => ['hearts' => HEARTS, 'maxObi' => MAX_OBI, 'maxTags' => MAX_TAGS, 'maxComment' => MAX_COMMENT, 'genres' => GENRES,
+    return ['settings' => ['hearts' => HEARTS, 'maxObi' => MAX_OBI, 'maxTags' => MAX_TAGS, 'maxComment' => MAX_COMMENT, 'maxVoice' => MAX_VOICE, 'genres' => GENRES,
         'tagSuggest' => array_slice(array_keys($tagCount), 0, 20)], 'books' => $books];
 }
 
@@ -286,6 +297,28 @@ function setTags(PDO $db, array $body): void {
     $st = $db->prepare('UPDATE books SET tags = ? WHERE id = ?');
     $st->execute([json_encode($tags, JSON_UNESCAPED_UNICODE), $bookId]);
     if ($st->rowCount() === 0) throw new RuntimeException('その本は見つかりません');
+}
+
+/** ひとこと（声）を残す。読みたいを押していなくてもよい */
+function say(PDO $db, array $body): void {
+    $bookId = clean($body['bookId'] ?? '', 40);
+    $name = clean($body['name'] ?? '', 30);
+    $text = clean($body['text'] ?? '', MAX_VOICE);
+    if ($name === '') throw new RuntimeException('名前を入れてください');
+    if ($text === '') throw new RuntimeException('ひとことを入れてください');
+    $exists = $db->prepare('SELECT 1 FROM books WHERE id = ?');
+    $exists->execute([$bookId]);
+    if (!$exists->fetchColumn()) throw new RuntimeException('その本は見つかりません');
+    $db->prepare('INSERT INTO voices (book_id, name, text, created_at) VALUES (?,?,?,?)')->execute([$bookId, $name, $text, gmdate('c')]);
+}
+
+/** 自分のひとことを消す（名前が一致するものだけ） */
+function unsay(PDO $db, array $body): void {
+    $id = (int)($body['voiceId'] ?? 0);
+    $name = clean($body['name'] ?? '', 30);
+    $st = $db->prepare('DELETE FROM voices WHERE id = ? AND name = ?');
+    $st->execute([$id, $name]);
+    if ($st->rowCount() === 0) throw new RuntimeException('自分のひとことだけ消せます');
 }
 
 /** 大分類を手で直す（自動判定が外れていたとき） */

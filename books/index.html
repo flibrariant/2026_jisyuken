@@ -4,10 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#05070f" />
-  <meta name="description" content="QommonsAI自主研の本の銀河。みんなのおすすめ本が浮かぶ空間。気になる本をタップして「読みたい」を押すだけ。" />
+  <meta name="description" content="QommonsAI自主研の本の銀河。みんなで共有する本棚。薦めた理由、読みたい理由、読んだ感想が本のまわりに溜まっていく。" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="本の銀河｜QommonsAI自主研" />
-  <meta property="og:description" content="おすすめ本が浮かぶ空間。なでて回して、気になる本をタップ。" />
+  <meta property="og:description" content="みんなで共有する本棚。なでて回して、気になる本をタップ。ひとことを残そう。" />
   <title>本の銀河｜QommonsAI自主研</title>
   <style>
     :root {
@@ -20,6 +20,9 @@
       --heart: #ff5c8a;
       --blue: #5b8cff;
     }
+    /* ブラウザ標準の部品（select の一覧など）も暗色で描かせる。そうしないと白地に薄い文字で読めない */
+    :root { color-scheme: dark; }
+    select option { color: #111; background: #fff; } /* 暗色に対応しないブラウザ向けの保険 */
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body { height: 100%; margin: 0; overflow: hidden; background: var(--bg); color: var(--ink);
       font-family: "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", Meiryo, sans-serif; line-height: 1.6; }
@@ -153,7 +156,13 @@
     .voice { position: relative; padding: 10px 12px 10px 14px; border-radius: 0 12px 12px 0; border-left: 3px solid var(--accent); background: rgba(255,216,90,.08); font-size: 14.5px; line-height: 1.6; }
     .voice.want { border-left-color: var(--heart); background: rgba(255,92,138,.08); font-size: 13.5px; }
     .voice small { display: block; margin-top: 3px; color: var(--muted); font-size: 11.5px; }
+    .voice.note { border-left-color: rgba(255,255,255,.35); background: rgba(255,255,255,.06); font-size: 13.5px; }
+    .voice .del { position: absolute; top: 6px; right: 8px; border: 0; background: none; color: var(--muted); font-size: 14px; cursor: pointer; opacity: .6; }
+    .voice .del:hover { opacity: 1; }
     .voice.empty { border-left-color: var(--line); background: rgba(255,255,255,.04); color: var(--muted); font-size: 13px; }
+    .sayrow { display: flex; gap: 8px; margin-top: 10px; align-items: flex-start; }
+    .sayrow textarea { flex: 1; min-height: 44px; padding: 9px 12px; font-size: 13.5px; }
+    .sayrow button { flex: none; }
     .wantrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
     .wantrow .names { font-size: 12px; color: var(--muted); }
     .wantrow .names span { display: inline-block; margin: 2px 6px 0 0; padding: 1px 8px; border-radius: 999px; background: rgba(255,92,138,.15); color: #ffb3c8; }
@@ -199,12 +208,12 @@
   <div class="top">
     <div class="brand">
       <h1>本の銀河</h1>
-      <small id="count">QommonsAI自主研</small>
+      <small id="count">みんなで共有する本棚</small>
     </div>
     <button class="hearts" id="heartsBtn" type="button" title="自分の「読みたい」"><span id="heartsName">読みたい</span><span class="h" id="heartsIcons">♥♥♥</span></button>
   </div>
   <div class="chips" id="chips"></div>
-  <div class="hint" id="hint">なでて回す。気になる本をタップ。</div>
+  <div class="hint" id="hint">なでて回す。気になる本をタップして、ひとこと。</div>
   <div class="bottom">
     <button class="btn" id="addBtn" type="button">＋ 本を足す</button>
     <button class="btn small" id="modeBtn" type="button" style="display:none">2D表示</button>
@@ -220,7 +229,7 @@
     <div class="grab"></div>
     <button class="close" type="button" data-close="add" aria-label="閉じる">×</button>
     <h2 style="margin:0 0 4px;font-size:18px">この本いいよ</h2>
-    <p class="note" style="margin:0 0 8px">書名か ISBN を入れて、出てきた本をタップするだけ。表紙・定価・紹介文はあとから自動で付きます。</p>
+    <p class="note" style="margin:0 0 8px">みんなの本棚に 1 冊足します。書名か ISBN を入れて、出てきた本をタップするだけ。表紙・定価・紹介文はあとから自動で付きます。</p>
     <div class="row">
       <input type="text" id="q" class="bigq" placeholder="書名か ISBN（例：イシューからはじめよ）" autocomplete="off" enterkeyhint="search" />
       <button class="btn small" id="searchBtn" type="button">探す</button>
@@ -296,7 +305,7 @@
         books: (data.books || []).map((b) => {
           // voters は {name, comment} の配列。古い形式（名前だけの配列）も受ける
           const voters = (b.voters || []).map((v) => (typeof v === 'string' ? { name: v, comment: '' } : v));
-          return Object.assign({ tags: [], genre: '', description: '', desc_src: '' }, b, { voters, votes: voters.length });
+          return Object.assign({ tags: [], genre: '', description: '', desc_src: '', voices: [] }, b, { voters, votes: voters.length });
         })
       };
     }
@@ -342,6 +351,10 @@
       } else if (body.action === 'unvote') {
         const b = find();
         b.voters = b.voters.filter((v) => v.name !== body.name);
+      } else if (body.action === 'say') {
+        const b = find(); b.voices = (b.voices || []).concat([{ id: Date.now(), name: body.name, text: body.text, created_at: new Date().toISOString() }]);
+      } else if (body.action === 'unsay') {
+        state.books.forEach((b) => { b.voices = (b.voices || []).filter((v) => !(v.id === body.voiceId && v.name === body.name)); });
       } else if (body.action === 'tags') {
         find().tags = (body.tags || []).slice(0, state.settings.maxTags);
       } else if (body.action === 'genre') {
@@ -783,10 +796,14 @@
       } else if (!b.url) {
         links.push(`<a href="https://ndlsearch.ndl.go.jp/search?cs=bib&f-ht=ndl&keyword=${encodeURIComponent(b.title)}" target="_blank" rel="noopener">国会図書館で探す ↗</a>`);
       }
+      // 声: 帯（浮かべた人）→ 読みたいの一言とひとことを時系列で
       const voices = [];
       if (b.obi) voices.push(`<div class="voice">${esc(b.obi)}<small>── ${esc(b.proposer || '')}（この本を浮かべた人）</small></div>`);
-      b.voters.filter((v) => v.comment).forEach((v) => voices.push(`<div class="voice want">${esc(v.comment)}<small>── ${esc(v.name)}</small></div>`));
-      if (!voices.length) voices.push(`<div class="voice empty">まだ誰も言葉を添えていません。読みたい、と一緒に一行どうぞ。</div>`);
+      const stream = b.voters.filter((v) => v.comment).map((v) => ({ kind: 'want', name: v.name, text: v.comment, at: v.created_at || '' }))
+        .concat((b.voices || []).map((v) => ({ kind: 'note', id: v.id, name: v.name, text: v.text, at: v.created_at || '' })))
+        .sort((x, y) => x.at.localeCompare(y.at));
+      stream.forEach((v) => voices.push(`<div class="voice ${v.kind}">${esc(v.text)}<small>── ${esc(v.name)}${v.kind === 'want' ? '（読みたい）' : ''}</small>${v.kind === 'note' && myName && v.name === myName ? `<button type="button" class="del" data-unsay="${v.id}" title="消す">×</button>` : ''}</div>`));
+      if (!voices.length) voices.push(`<div class="voice empty">まだ誰も言葉を添えていません。最初のひとことをどうぞ。</div>`);
       const names = b.voters.map((v) => `<span>${esc(v.name)}</span>`).join('');
       const genreOpts = Object.entries(state.settings.genres || DEFAULT_GENRES).map(([k, v]) => `<option value="${k}" ${k === b.genre ? 'selected' : ''}>${esc(v)}</option>`).join('');
       $('detailBody').innerHTML = `
@@ -808,6 +825,10 @@
           </div>
         </div>
         <div class="voices">${voices.join('')}</div>
+        <div class="sayrow">
+          <textarea id="sayText" maxlength="${state.settings.maxVoice || 200}" placeholder="ひとこと（読みたい理由、読んだ感想、なんでも）"></textarea>
+          <button class="btn small" type="button" id="sayBtn">書く</button>
+        </div>
         <div class="wantrow">
           <button class="btn heart ${me ? 'on' : ''}" type="button" id="wantBtn">${me ? '♥ 読みたい済み' : '♥ 読みたい'}</button>
           <span class="names">${b.voters.length ? names : '最初の一人になる？'}</span>
@@ -828,6 +849,16 @@
         </details>
         ${b.description ? `<details class="more"><summary>${b.desc_src === 'ai' ? '🤖 AIが書いた紹介' : '内容紹介'}</summary><div class="body desc ${b.desc_src === 'ai' ? 'ai' : ''} open" id="desc"><p>${esc(b.description)}</p><small>${descSource(b.desc_src)}</small></div></details>` : ''}`;
       fixBrokenCovers($('detailBody'));
+      // ひとこと
+      $('sayBtn').onclick = async () => {
+        const text = $('sayText').value.trim(); if (!text) { $('sayText').focus(); return; }
+        if (!myName) { askName(() => $('sayBtn').click()); return; }
+        if (await send({ action: 'say', bookId: id, name: myName, text })) { toast('ひとことを残しました'); afterChange(); renderDetail(id); }
+      };
+      $('sayText').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); $('sayBtn').click(); } });
+      $('detailBody').querySelectorAll('[data-unsay]').forEach((el) => el.addEventListener('click', async () => {
+        if (await send({ action: 'unsay', bookId: id, voiceId: Number(el.dataset.unsay), name: myName })) { toast('消しました'); afterChange(); renderDetail(id); }
+      }));
       // 読みたい
       $('wantBtn').onclick = () => { if (!myName) { askName(() => renderDetail(id)); return; } $('wantbox').classList.toggle('open'); if ($('wantbox').classList.contains('open')) $('wantText').focus(); };
       $('wantCancel').onclick = () => $('wantbox').classList.remove('open');
@@ -1029,9 +1060,9 @@
       else { $('modeBtn').style.display = 'none'; setMode(true); }
       if (live) setInterval(async () => {
         if (document.hidden || $('add').classList.contains('open')) return;
-        const before = JSON.stringify(state.books.map((b) => [b.id, b.votes, b.cover, b.genre, (b.tags || []).join(','), b.voters.map((v) => v.comment).join('|')]));
+        const before = JSON.stringify(state.books.map((b) => [b.id, b.votes, b.cover, b.genre, (b.tags || []).join(','), b.voters.map((v) => v.comment).join('|'), (b.voices || []).length]));
         await fetchState();
-        if (JSON.stringify(state.books.map((b) => [b.id, b.votes, b.cover, b.genre, (b.tags || []).join(','), b.voters.map((v) => v.comment).join('|')])) !== before) afterChange();
+        if (JSON.stringify(state.books.map((b) => [b.id, b.votes, b.cover, b.genre, (b.tags || []).join(','), b.voters.map((v) => v.comment).join('|'), (b.voices || []).length])) !== before) afterChange();
       }, 45000);
     })();
   </script>
