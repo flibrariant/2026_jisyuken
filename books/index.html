@@ -130,6 +130,63 @@
     #grid .noimg { display: flex; align-items: center; justify-content: center; padding: 6px; font-size: 11px; color: var(--muted); text-align: center; }
     #grid b { display: block; margin-top: 4px; font-size: 11px; line-height: 1.3; }
     .loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 14px; z-index: 2; pointer-events: none; }
+    /* 分類チップ（上のバー）。横にスクロール */
+    .chips { position: fixed; left: 0; right: 0; top: calc(64px + env(safe-area-inset-top)); z-index: 5; display: flex; gap: 6px; padding: 4px 14px;
+      overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; pointer-events: none; }
+    .chips::-webkit-scrollbar { display: none; }
+    .chips button { pointer-events: auto; flex: none; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); background: rgba(12,16,32,.75);
+      color: var(--muted); font-size: 12px; font-weight: 800; cursor: pointer; white-space: nowrap; backdrop-filter: blur(8px); }
+    .chips button .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; background: var(--c, #fff); box-shadow: 0 0 8px var(--c, #fff); }
+    .chips button.on { color: #fff; border-color: var(--c, var(--accent)); background: rgba(255,255,255,.1); }
+    .chips button small { opacity: .6; margin-left: 4px; font-weight: 400; }
+
+    /* 詳細: ひとこと中心 */
+    .head { display: grid; grid-template-columns: 84px 1fr; gap: 12px; align-items: start; }
+    .head img, .head .noimg { width: 84px; aspect-ratio: 0.7; object-fit: cover; border-radius: 5px; box-shadow: 0 10px 30px rgba(0,0,0,.6); background: #1a2340; }
+    .head h2 { margin: 0 0 3px; font-size: 16px; line-height: 1.35; }
+    .head .meta { margin: 0; color: var(--muted); font-size: 12px; }
+    .labels { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+    .labels .genre { padding: 2px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 800; color: #0b0f1c; background: var(--c, #9fb6ff); }
+    .labels .tag { padding: 2px 9px; border-radius: 999px; font-size: 11.5px; color: #dfe5f7; background: rgba(255,255,255,.1); }
+    .labels .tag.add { background: none; border: 1px dashed var(--line); color: var(--muted); cursor: pointer; }
+    .voices { margin: 14px 0 0; display: grid; gap: 8px; }
+    .voice { position: relative; padding: 10px 12px 10px 14px; border-radius: 0 12px 12px 0; border-left: 3px solid var(--accent); background: rgba(255,216,90,.08); font-size: 14.5px; line-height: 1.6; }
+    .voice.want { border-left-color: var(--heart); background: rgba(255,92,138,.08); font-size: 13.5px; }
+    .voice small { display: block; margin-top: 3px; color: var(--muted); font-size: 11.5px; }
+    .voice.empty { border-left-color: var(--line); background: rgba(255,255,255,.04); color: var(--muted); font-size: 13px; }
+    .wantrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+    .wantrow .names { font-size: 12px; color: var(--muted); }
+    .wantrow .names span { display: inline-block; margin: 2px 6px 0 0; padding: 1px 8px; border-radius: 999px; background: rgba(255,92,138,.15); color: #ffb3c8; }
+    .wantbox { display: none; margin-top: 10px; padding: 10px; border-radius: 12px; background: rgba(255,92,138,.08); border: 1px solid rgba(255,92,138,.3); }
+    .wantbox.open { display: block; }
+    .wantbox input { margin-top: 6px; }
+    .wantbox .row { margin-top: 8px; justify-content: flex-end; }
+    details.more { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 8px; }
+    details.more summary { cursor: pointer; font-size: 12.5px; font-weight: 800; color: var(--muted); list-style: none; display: flex; align-items: center; gap: 6px; }
+    details.more summary::before { content: '▸'; font-size: 11px; transition: transform .15s; }
+    details.more[open] summary::before { transform: rotate(90deg); }
+    details.more .body { margin-top: 8px; }
+    .tagbox { display: none; margin-top: 8px; }
+    .tagbox.open { display: block; }
+    .sugg { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .sugg button { padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.05); color: var(--ink); font-size: 12px; cursor: pointer; }
+    .sugg button.on { background: var(--accent); color: #1b1300; border-color: transparent; }
+
+    /* 本を足す（軽く） */
+    .bigq { font-size: 16px; padding: 13px 14px; }
+    .who { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; color: var(--muted); }
+    .who b { color: var(--ink); }
+    .who button { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); background: none; color: var(--muted); font-size: 11px; cursor: pointer; }
+
+    /* 広い画面では詳細を右側のパネルにして、銀河を見せたままにする */
+    @media (min-width: 900px) {
+      .sheet#detail { left: auto; top: 0; bottom: 0; width: 440px; max-height: none; border-radius: 0; border-top: 0; border-left: 1px solid var(--line);
+        padding: calc(16px + env(safe-area-inset-top)) 20px 24px; transform: translateX(105%); }
+      .sheet#detail.open { transform: translateX(0); }
+      .sheet#detail .grab { display: none; }
+      .sheet#add { left: 50%; right: auto; width: 560px; transform: translate(-50%, 105%); border-radius: 22px 22px 0 0; }
+      .sheet#add.open { transform: translate(-50%, 0); }
+    }
     @media (prefers-reduced-motion: reduce) { .sheet { transition: none; } }
   </style>
 </head>
@@ -146,6 +203,7 @@
     </div>
     <button class="hearts" id="heartsBtn" type="button" title="自分の「読みたい」"><span id="heartsName">読みたい</span><span class="h" id="heartsIcons">♥♥♥</span></button>
   </div>
+  <div class="chips" id="chips"></div>
   <div class="hint" id="hint">なでて回す。気になる本をタップ。</div>
   <div class="bottom">
     <button class="btn" id="addBtn" type="button">＋ 本を足す</button>
@@ -161,29 +219,30 @@
   <section class="sheet" id="add" aria-label="本を足す">
     <div class="grab"></div>
     <button class="close" type="button" data-close="add" aria-label="閉じる">×</button>
-    <h2 style="margin:0 0 4px;font-size:17px">この本いいよ、を足す</h2>
-    <p class="note" style="margin:0">書名かISBNを入れて検索すると、表紙や定価を自動で持ってきます。</p>
-    <label for="q">書名 / ISBN</label>
+    <h2 style="margin:0 0 4px;font-size:18px">この本いいよ</h2>
+    <p class="note" style="margin:0 0 8px">書名か ISBN を入れて、出てきた本をタップするだけ。表紙・定価・紹介文はあとから自動で付きます。</p>
     <div class="row">
-      <input type="text" id="q" placeholder="例：イシューからはじめよ" autocomplete="off" />
-      <button class="btn small" id="searchBtn" type="button">検索</button>
+      <input type="text" id="q" class="bigq" placeholder="書名か ISBN（例：イシューからはじめよ）" autocomplete="off" enterkeyhint="search" />
+      <button class="btn small" id="searchBtn" type="button">探す</button>
     </div>
-    <p class="note" id="searchNote">⏳ 検索は国立国会図書館と Google Books に問い合わせるため、10〜30秒ほどかかります。</p>
+    <p class="note" id="searchNote">⏳ 国会図書館と楽天ブックスに問い合わせます。数秒〜20秒ほどかかることがあります。</p>
     <div class="cands" id="cands"></div>
     <form id="addForm" style="display:none">
       <div class="picked" id="picked"></div>
-      <label for="fTitle">書名</label>
-      <input type="text" id="fTitle" maxlength="120" required />
-      <div class="row">
-        <div style="flex:1"><label for="fAuthor">著者</label><input type="text" id="fAuthor" maxlength="80" /></div>
-        <div style="width:120px"><label for="fPrice">定価（円）</label><input type="number" id="fPrice" min="0" step="1" inputmode="numeric" /></div>
+      <div id="manualFields" style="display:none">
+        <label for="fTitle">書名</label>
+        <input type="text" id="fTitle" maxlength="120" />
+        <label for="fAuthor">著者</label>
+        <input type="text" id="fAuthor" maxlength="80" />
       </div>
-      <label for="fObi">ひとこと（推薦の言葉、100字まで）</label>
-      <textarea id="fObi" maxlength="120" required placeholder="例：会議の空気を変える一冊。"></textarea>
+      <label for="fObi">ひとこと（任意・推した理由を一行）</label>
+      <textarea id="fObi" maxlength="120" placeholder="例：会議の空気を変える一冊。"></textarea>
       <div class="counter" id="obiCount">0 / 100</div>
-      <label for="fName">あなたの名前</label>
-      <input type="text" id="fName" maxlength="30" required placeholder="班で呼ばれている名前" />
-      <div class="actions"><button class="btn primary" type="submit" id="addSubmit">銀河に浮かべる</button><button class="btn small" type="button" id="manualBtn">検索せずに手で入れる</button></div>
+      <label>タグ（任意・3つまで）</label>
+      <div class="sugg" id="tagSugg"></div>
+      <input type="text" id="fTags" maxlength="40" placeholder="自分で付けるなら、空白区切りで（例：仕事に効く 新人に）" />
+      <div class="who" id="who"></div>
+      <div class="actions"><button class="btn primary" type="submit" id="addSubmit">銀河に浮かべる</button></div>
     </form>
     <div class="actions" id="manualRow"><button class="btn small" type="button" id="manualBtn2">検索せずに手で入れる</button></div>
   </section>
@@ -228,12 +287,21 @@
     }
 
     // ================= データ =================
+    const DEFAULT_GENRES = { ai: 'AI・情報', books: '本・図書館', think: '考える・心', history: '歴史・地域', society: '社会・しごと', science: '科学・自然', tech: '技術・くらし', art: 'アート・あそび', words: 'ことば', story: '物語・エッセイ', other: 'その他' };
+    // 分類ごとの色（星団の光と、チップの色）
+    const GENRE_COLORS = { ai: '#5b8cff', books: '#ffd85a', think: '#c08cff', history: '#ffb070', society: '#ff7a9a', science: '#4fd1c5', tech: '#8fd3ff', art: '#ff9be0', words: '#a7e85a', story: '#ffc8a2', other: '#9aa6c4', '': '#7f8aa8' };
     function normalize(data) {
       return {
-        settings: Object.assign({ hearts: 0, maxObi: 100 }, data.settings || {}),
-        books: (data.books || []).map((b) => Object.assign({ voters: [], votes: 0 }, b, { votes: (b.voters || []).length }))
+        settings: Object.assign({ hearts: 0, maxObi: 100, maxTags: 3, maxComment: 60, genres: DEFAULT_GENRES, tagSuggest: [] }, data.settings || {}),
+        books: (data.books || []).map((b) => {
+          // voters は {name, comment} の配列。古い形式（名前だけの配列）も受ける
+          const voters = (b.voters || []).map((v) => (typeof v === 'string' ? { name: v, comment: '' } : v));
+          return Object.assign({ tags: [], genre: '', description: '', desc_src: '' }, b, { voters, votes: voters.length });
+        })
       };
     }
+    function genreLabel(key) { return (state.settings.genres || DEFAULT_GENRES)[key] || '未分類'; }
+    function genreColor(key) { return GENRE_COLORS[key] || GENRE_COLORS['']; }
 
     async function loadDemo() {
       let saved = null;
@@ -261,21 +329,28 @@
 
     function demoApply(body) {
       const hearts = state.settings.hearts; // 0 = 何冊でも
+      const find = () => state.books.find((x) => x.id === body.bookId);
       if (body.action === 'vote') {
-        const b = state.books.find((x) => x.id === body.bookId);
-        const mine = state.books.filter((x) => x.voters.includes(body.name)).length;
-        if (!b.voters.includes(body.name)) {
+        const b = find();
+        const mine = state.books.filter((x) => x.voters.some((v) => v.name === body.name)).length;
+        const cur = b.voters.find((v) => v.name === body.name);
+        if (cur) cur.comment = body.comment || '';
+        else {
           if (hearts > 0 && mine >= hearts) throw new Error('「読みたい」は' + hearts + '冊までです。どれかを外してください');
-          b.voters.push(body.name);
+          b.voters.push({ name: body.name, comment: body.comment || '' });
         }
       } else if (body.action === 'unvote') {
-        const b = state.books.find((x) => x.id === body.bookId);
-        b.voters = b.voters.filter((n) => n !== body.name);
+        const b = find();
+        b.voters = b.voters.filter((v) => v.name !== body.name);
+      } else if (body.action === 'tags') {
+        find().tags = (body.tags || []).slice(0, state.settings.maxTags);
+      } else if (body.action === 'genre') {
+        find().genre = body.genre;
       } else if (body.action === 'addBook') {
         if (state.books.some((x) => x.title === body.title || (body.isbn && x.isbn === body.isbn))) throw new Error('その本はもう登録されています');
         state.books.push({ id: 'd' + Date.now().toString(36), title: body.title, author: body.author || '', publisher: body.publisher || '',
           price: body.price || null, isbn: body.isbn || '', cover: body.cover || (body.isbn ? 'https://cover.openbd.jp/' + body.isbn + '.jpg' : ''),
-          url: body.url || '', obi: body.obi, proposer: body.name, voters: [], created_at: new Date().toISOString() });
+          url: body.url || '', obi: body.obi || '', proposer: body.name, voters: [], tags: body.tags || [], genre: body.genre || '', description: '', desc_src: '', created_at: new Date().toISOString() });
       }
       state.books.forEach((b) => { b.votes = b.voters.length; });
       saveDemo();
@@ -408,7 +483,16 @@
       const streak = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(streakC), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0, fog: false }));
       streak.scale.set(7, 0.12, 1); streak.visible = false; scene.add(streak);
 
-      three = { renderer, scene, camera, group, sky, starsFar, starsNear, dust, glowTex, glowCoolTex, streak, meteor: null, nextMeteor: performance.now() + 5000,
+      // 分類ごとの色の光（必要になったときに作る）
+      const genreGlowCache = new Map();
+      const genreGlow = (key) => {
+        if (!genreGlowCache.has(key)) {
+          const hex = genreColor(key).replace('#', ''), r = parseInt(hex.slice(0, 2), 16), g = parseInt(hex.slice(2, 4), 16), b = parseInt(hex.slice(4, 6), 16);
+          genreGlowCache.set(key, radial(128, [[0, `rgba(${r},${g},${b},.75)`], [.4, `rgba(${r},${g},${b},.22)`], [1, `rgba(${r},${g},${b},0)`]]));
+        }
+        return genreGlowCache.get(key);
+      };
+      three = { renderer, scene, camera, group, sky, starsFar, starsNear, dust, glowTex, glowCoolTex, genreGlow, streak, meteor: null, nextMeteor: performance.now() + 5000,
         camZ: 10, sprites: new Map(), glows: new Map(), selected: null, targetQ: null,
         vel: { x: 0, y: 0 }, lastInteract: 0, dragging: false, loader: new THREE.TextureLoader() };
       three.loader.setCrossOrigin('anonymous');
@@ -436,37 +520,57 @@
     function sphereRadius() { return 4.6 + Math.sqrt(Math.max(1, state.books.length)) * 0.5; }
 
     // フィボナッチ球に並べる。「読みたい」が多い本ほど中心寄りで大きい
+    // 分類ごとに星団を作る。各星団の中心を球面上に散らし、その周りに本を並べる。
+    // 「読みたい」が多い本ほど中心寄りで大きい
+    let genreFilter = '';
     function layout(animate) {
       if (!three) return;
       const books = state.books.slice().sort((a, b) => b.votes - a.votes || (a.created_at || '').localeCompare(b.created_at || ''));
-      const n = books.length, R = sphereRadius();
+      const R = sphereRadius();
       const maxV = Math.max(1, ...books.map((b) => b.votes));
       const golden = Math.PI * (3 - Math.sqrt(5));
-      books.forEach((b, i) => {
-        const y = n === 1 ? 0 : 1 - (i / (n - 1)) * 2;
-        const rr = Math.sqrt(1 - y * y), th = golden * i;
-        const pull = 0.5 * (b.votes / maxV);
-        const r = R * (1 - pull);
-        const target = new THREE.Vector3(Math.cos(th) * rr * r, y * r, Math.sin(th) * rr * r);
-        const sprite = ensureSprite(b);
-        sprite.userData.target = target;
-        sprite.userData.scale = 1 + 0.35 * (b.votes / maxV) * (b.votes > 0 ? 1 : 0);
-        if (!sprite.userData.placed) {
-          // 初めて現れる本は中心から広がって自分の場所へ（最初の読み込みでは銀河が生まれるように見える）
-          sprite.position.copy(target).multiplyScalar(animate ? 0.3 : 0.04);
-          sprite.userData.placed = true;
-        } else if (!animate) sprite.position.copy(target);
-        let glow = three.glows.get(b.id);
-        if (!glow) {
-          glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: three.glowCoolTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: .3 }));
-          three.group.add(glow); three.glows.set(b.id, glow);
-        }
-        // 「読みたい」が付いた本は暖かい光で大きく、付いていない本は冷たい光でかすかに
-        glow.material.map = b.votes > 0 ? three.glowTex : three.glowCoolTex;
-        glow.material.opacity = b.votes > 0 ? .6 : .28;
-        glow.material.needsUpdate = true;
-        glow.userData.size = COVER_H * (b.votes > 0 ? 1.15 + 0.7 * b.votes / maxV : 1.25);
-        glow.visible = true;
+      // 星団の中心（分類の数だけ、球面に均等に）
+      const order = Object.keys(state.settings.genres || DEFAULT_GENRES).concat(['']);
+      const groups = new Map();
+      books.forEach((b) => { const k = b.genre || ''; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(b); });
+      const keys = [...groups.keys()].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+      const G = keys.length;
+      const centers = new Map();
+      keys.forEach((k, gi) => {
+        const y = G === 1 ? 0.15 : 0.8 - (gi / (G - 1)) * 1.6, rr = Math.sqrt(1 - y * y), th = golden * gi + 0.7;
+        centers.set(k, new THREE.Vector3(Math.cos(th) * rr, y, Math.sin(th) * rr).normalize());
+      });
+      keys.forEach((k) => {
+        const list = groups.get(k), c = centers.get(k);
+        // 中心方向に直交する2軸（星団内の広がりに使う）
+        const up = Math.abs(c.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+        const u = new THREE.Vector3().crossVectors(c, up).normalize(), v = new THREE.Vector3().crossVectors(c, u).normalize();
+        const spread = Math.min(0.95, 0.28 + 0.12 * Math.sqrt(list.length)); // 冊数が多い星団ほど広い
+        list.forEach((b, j) => {
+          const rad = spread * Math.sqrt((j + 0.5) / list.length), ang = golden * j + hue(b.id) / 57;
+          const dir = c.clone().addScaledVector(u, Math.cos(ang) * rad).addScaledVector(v, Math.sin(ang) * rad).normalize();
+          const pull = 0.45 * (b.votes / maxV);
+          const target = dir.multiplyScalar(R * (1 - pull));
+          const sprite = ensureSprite(b);
+          sprite.userData.target = target;
+          sprite.userData.scale = 1 + 0.35 * (b.votes / maxV) * (b.votes > 0 ? 1 : 0);
+          if (!sprite.userData.placed) {
+            // 初めて現れる本は中心から広がって自分の場所へ（最初の読み込みでは銀河が生まれるように見える）
+            sprite.position.copy(target).multiplyScalar(animate ? 0.3 : 0.04);
+            sprite.userData.placed = true;
+          } else if (!animate) sprite.position.copy(target);
+          let glow = three.glows.get(b.id);
+          if (!glow) {
+            glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: three.glowTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: .3 }));
+            three.group.add(glow); three.glows.set(b.id, glow);
+          }
+          // 「読みたい」が付いた本は暖かい光で大きく、付いていない本は分類の色でかすかに
+          glow.material.map = b.votes > 0 ? three.glowTex : three.genreGlow(b.genre || '');
+          glow.material.opacity = b.votes > 0 ? .6 : .32;
+          glow.material.needsUpdate = true;
+          glow.userData.size = COVER_H * (b.votes > 0 ? 1.15 + 0.7 * b.votes / maxV : 1.3);
+          glow.visible = true;
+        });
       });
       // 消えた本
       for (const [id, sp] of three.sprites) if (!books.some((b) => b.id === id)) {
@@ -531,9 +635,13 @@
         const want = u.scale * (three.selected === sp ? 1.7 : 1);
         u.cur += (want - u.cur) * 0.12;
         sp.scale.set(COVER_H * u.aspect * u.cur, COVER_H * u.cur, 1);
+        // 分類で絞っているときは、それ以外の本を薄くする
+        const dim = genreFilter && (u.book.genre || '') !== genreFilter;
+        sp.material.opacity += ((dim ? 0.1 : 1) - sp.material.opacity) * 0.15;
         const glow = three.glows.get(u.book.id);
         if (glow && glow.visible) {
           glow.position.copy(sp.position);
+          glow.material.opacity = dim ? 0.02 : (u.book.votes > 0 ? .6 : .32);
           // 選ばれている本の光はゆっくり脈打つ
           const pulse = three.selected === sp ? 1.25 + 0.15 * Math.sin(now * 0.004) : 1;
           const s = glow.userData.size * u.cur * pulse; glow.scale.set(s, s, 1);
@@ -608,8 +716,9 @@
         if (sp) {
           // 選んだ本が正面（カメラ側）に来るように回す
           const dir = sp.position.clone().normalize();
-          // 詳細シートに隠れないよう、画面の上寄りに来る向きへ
-          const q = new THREE.Quaternion().setFromUnitVectors(dir, new THREE.Vector3(0, 0.55, 1).normalize());
+          // 詳細に隠れないよう、スマホでは画面の上寄り、PC（右パネル）では左寄りに来る向きへ
+          const wide = window.innerWidth >= 900;
+          const q = new THREE.Quaternion().setFromUnitVectors(dir, new THREE.Vector3(wide ? -0.45 : 0, wide ? 0.1 : 0.55, 1).normalize());
           three.targetQ = q;
           three.vel.x = three.vel.y = 0; three.lastInteract = performance.now() + 4000;
         }
@@ -620,7 +729,7 @@
     }
 
     // ================= UI =================
-    function myVotes() { return state.books.filter((b) => myName && b.voters.includes(myName)); }
+    function myVotes() { return state.books.filter((b) => myName && b.voters.some((v) => v.name === myName)); }
     function renderTop() {
       const hearts = state.settings.hearts, used = myVotes().length;
       $('count').textContent = state.books.length + '冊が浮かんでいます' + (live ? '' : '（お試し：この端末だけ）');
@@ -630,6 +739,24 @@
         : '<span class="' + (used ? '' : 'off') + '">♥</span>' + (used ? ' ' + used : '');
       $('heartsName').textContent = myName ? myName : '読みたい';
       $('nameNote').textContent = (hearts > 0 ? '「読みたい」は一人' + hearts + '冊まで。' : '「読みたい」は何冊でも。') + '名前はこの端末に覚えておきます。';
+      renderChips();
+    }
+
+    // 分類チップ: 銀河にある分類だけ、冊数つきで。押すとその星団だけ光る
+    function renderChips() {
+      const counts = {};
+      state.books.forEach((b) => { const k = b.genre || ''; counts[k] = (counts[k] || 0) + 1; });
+      const order = Object.keys(state.settings.genres || DEFAULT_GENRES).concat(['']);
+      const keys = Object.keys(counts).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+      if (keys.length < 2) { $('chips').innerHTML = ''; return; }
+      $('chips').innerHTML = [`<button type="button" data-genre="*" class="${genreFilter ? '' : 'on'}">すべて<small>${state.books.length}</small></button>`]
+        .concat(keys.map((k) => `<button type="button" data-genre="${esc(k)}" class="${genreFilter === k ? 'on' : ''}" style="--c:${genreColor(k)}"><span class="dot"></span>${esc(k ? genreLabel(k) : '未分類')}<small>${counts[k]}</small></button>`)).join('');
+      $('chips').querySelectorAll('[data-genre]').forEach((el) => el.addEventListener('click', () => {
+        const k = el.dataset.genre === '*' ? '' : el.dataset.genre;
+        genreFilter = genreFilter === k ? '' : k;
+        renderChips(); renderGrid(); hideHint();
+        if (three) three.lastInteract = performance.now();
+      }));
     }
 
     // 内容紹介の出どころ（api.php の desc_src）。AI が書いたものは本の実際の内容と違うことがあるので必ず明示する
@@ -638,10 +765,12 @@
         ai: 'この紹介は、紹介文が見つからなかったため AI（Claude）が書名・著者・出版社から書いたものです。実際の内容と異なることがあります。' }[src] || '出版社・書店の紹介文より';
     }
 
+    // 詳細: まず「ひとこと」、次に読みたい、本の情報と内容紹介は畳んでおく
     function renderDetail(id) {
       const b = state.books.find((x) => x.id === id); if (!b) return;
-      const mine = myName && b.voters.includes(myName);
+      const me = myName ? b.voters.find((v) => v.name === myName) : null;
       const facts = [];
+      if (b.publisher) facts.push(esc(b.publisher));
       if (b.pubdate) facts.push(esc(b.pubdate.replace(/^(\d{4})\.(\d{1,2})$/, '$1年$2月') + ' 発行'));
       if (b.pages) facts.push(esc(b.pages + ' ページ'));
       if (b.isbn) facts.push('ISBN ' + esc(b.isbn));
@@ -654,43 +783,86 @@
       } else if (!b.url) {
         links.push(`<a href="https://ndlsearch.ndl.go.jp/search?cs=bib&f-ht=ndl&keyword=${encodeURIComponent(b.title)}" target="_blank" rel="noopener">国会図書館で探す ↗</a>`);
       }
+      const voices = [];
+      if (b.obi) voices.push(`<div class="voice">${esc(b.obi)}<small>── ${esc(b.proposer || '')}（この本を浮かべた人）</small></div>`);
+      b.voters.filter((v) => v.comment).forEach((v) => voices.push(`<div class="voice want">${esc(v.comment)}<small>── ${esc(v.name)}</small></div>`));
+      if (!voices.length) voices.push(`<div class="voice empty">まだ誰も言葉を添えていません。読みたい、と一緒に一行どうぞ。</div>`);
+      const names = b.voters.map((v) => `<span>${esc(v.name)}</span>`).join('');
+      const genreOpts = Object.entries(state.settings.genres || DEFAULT_GENRES).map(([k, v]) => `<option value="${k}" ${k === b.genre ? 'selected' : ''}>${esc(v)}</option>`).join('');
       $('detailBody').innerHTML = `
-        <div class="detail">
+        <div class="head">
           ${coverImg(b)}
           <div>
             <h2>${esc(b.title)}</h2>
-            <p class="meta">${esc(b.author || '著者不明')}${b.publisher ? '｜' + esc(b.publisher) : ''}</p>
-            <p class="price">${yen(b.price)}</p>
-            ${facts.length ? `<ul class="facts">${facts.map((f) => `<li>${f}</li>`).join('')}</ul>` : ''}
+            <p class="meta">${esc(b.author || '著者不明')}${b.price ? '｜' + yen(b.price) : ''}</p>
+            <div class="labels">
+              <span class="genre" style="--c:${genreColor(b.genre || '')}">${esc(b.genre ? genreLabel(b.genre) : '未分類')}</span>
+              ${(b.tags || []).map((t) => `<span class="tag">#${esc(t)}</span>`).join('')}
+              <button type="button" class="tag add" id="tagEdit">${(b.tags || []).length ? 'タグを直す' : '＋ タグ'}</button>
+            </div>
+            <div class="tagbox" id="tagbox">
+              <div class="sugg" id="tagSuggD"></div>
+              <input type="text" id="tagInputD" maxlength="40" placeholder="空白区切りで3つまで" />
+              <div class="row" style="margin-top:6px;justify-content:flex-end"><button class="btn small" type="button" id="tagCancel">やめる</button><button class="btn small primary" type="button" id="tagSave">保存</button></div>
+            </div>
           </div>
         </div>
-        <div class="obi">${esc(b.obi || '')}<small>── ${esc(b.proposer || '')}</small></div>
-        ${b.description ? `<div class="desc ${b.desc_src === 'ai' ? 'ai' : ''}" id="desc"><h3>${b.desc_src === 'ai' ? '🤖 AIが書いた紹介' : '内容紹介'}</h3><p>${esc(b.description)}</p>${b.description.length > 140 ? '<button type="button" id="descMore">もっと読む</button>' : ''}<small>${descSource(b.desc_src)}</small></div>` : ''}
-        <p class="voters">${b.voters.length ? '読みたい：' + b.voters.map((n) => `<span>${esc(n)}</span>`).join('') : 'まだ誰も「読みたい」していません。最初の一人になる？'}</p>
-        <div class="actions">
-          <button class="btn heart ${mine ? 'on' : ''}" type="button" data-vote="${esc(b.id)}">${mine ? '♥ 読みたい済み（外す）' : '♥ 読みたい'}</button>
-          ${links.join('')}
-        </div>`;
+        <div class="voices">${voices.join('')}</div>
+        <div class="wantrow">
+          <button class="btn heart ${me ? 'on' : ''}" type="button" id="wantBtn">${me ? '♥ 読みたい済み' : '♥ 読みたい'}</button>
+          <span class="names">${b.voters.length ? names : '最初の一人になる？'}</span>
+        </div>
+        <div class="wantbox" id="wantbox">
+          <label for="wantText" style="margin:0">${me ? '添えた一言を直す（空にすると消える）' : '一言添えますか？（任意）'}</label>
+          <input type="text" id="wantText" maxlength="${state.settings.maxComment}" value="${esc(me ? me.comment : '')}" placeholder="例：会議の前に読み返したい" />
+          <div class="row">${me ? '<button class="btn small" type="button" id="wantOff">読みたいを外す</button>' : ''}<button class="btn small" type="button" id="wantCancel">やめる</button><button class="btn small heart" type="button" id="wantOk">${me ? '保存' : '♥ 入れる'}</button></div>
+        </div>
+        <details class="more" ${b.description ? '' : ''}>
+          <summary>本の情報${facts.length ? '・' + facts[0] : ''}</summary>
+          <div class="body">
+            ${facts.length ? `<ul class="facts">${facts.map((f) => `<li>${f}</li>`).join('')}</ul>` : ''}
+            <div class="actions" style="margin-top:8px">${links.join('')}</div>
+            <label for="genreSel" style="margin-top:10px">分類（自動判定が違っていたら直してください）</label>
+            <select id="genreSel" style="width:100%;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--ink)">${genreOpts}</select>
+          </div>
+        </details>
+        ${b.description ? `<details class="more"><summary>${b.desc_src === 'ai' ? '🤖 AIが書いた紹介' : '内容紹介'}</summary><div class="body desc ${b.desc_src === 'ai' ? 'ai' : ''} open" id="desc"><p>${esc(b.description)}</p><small>${descSource(b.desc_src)}</small></div></details>` : ''}`;
       fixBrokenCovers($('detailBody'));
-      const more = $('descMore');
-      if (more) more.addEventListener('click', () => { const d = $('desc'); d.classList.toggle('open'); more.textContent = d.classList.contains('open') ? '閉じる' : 'もっと読む'; });
+      // 読みたい
+      $('wantBtn').onclick = () => { if (!myName) { askName(() => renderDetail(id)); return; } $('wantbox').classList.toggle('open'); if ($('wantbox').classList.contains('open')) $('wantText').focus(); };
+      $('wantCancel').onclick = () => $('wantbox').classList.remove('open');
+      $('wantOk').onclick = () => voteWith(id, $('wantText').value);
+      $('wantText').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); voteWith(id, $('wantText').value); } });
+      if ($('wantOff')) $('wantOff').onclick = async () => { if (await send({ action: 'unvote', bookId: id, name: myName })) { toast('外しました'); afterChange(); renderDetail(id); } };
+      // タグ
+      $('tagEdit').onclick = () => { $('tagbox').classList.add('open'); renderTagSugg($('tagSuggD'), $('tagInputD'), b.tags || []); $('tagInputD').value = (b.tags || []).join(' '); };
+      $('tagCancel').onclick = () => $('tagbox').classList.remove('open');
+      $('tagSave').onclick = async () => {
+        const tags = splitTags($('tagInputD').value);
+        if (await send({ action: 'tags', bookId: id, name: myName, tags })) { toast('タグを付けました'); afterChange(); renderDetail(id); }
+      };
+      // 分類
+      $('genreSel').onchange = async () => { if (await send({ action: 'genre', bookId: id, genre: $('genreSel').value })) { toast('分類を直しました'); afterChange(); renderDetail(id); } };
     }
 
-    $('detailBody').addEventListener('click', async (e) => {
-      const btn = e.target.closest('[data-vote]'); if (!btn) return;
-      const id = btn.dataset.vote;
-      const b = state.books.find((x) => x.id === id);
-      if (!myName) { askName(() => toggleVote(id)); return; }
-      await toggleVote(id);
-    });
-
-    async function toggleVote(id) {
-      const b = state.books.find((x) => x.id === id);
-      const on = !b.voters.includes(myName);
-      if (await send({ action: on ? 'vote' : 'unvote', bookId: id, name: myName })) {
-        toast(on ? '♥ 読みたい、に入れました' : '外しました');
+    async function voteWith(id, comment) {
+      if (!myName) { askName(() => renderDetail(id)); return; }
+      if (await send({ action: 'vote', bookId: id, name: myName, comment: comment.trim() })) {
+        toast('♥ 読みたい、に入れました');
         afterChange(); renderDetail(id);
       }
+    }
+
+    // タグ入力の補助: よく使われているタグをチップで出し、押すと入力欄に足し引き
+    function splitTags(v) { return [...new Set(String(v).split(/[\s,、#＃]+/).map((t) => t.trim()).filter(Boolean))].slice(0, state.settings.maxTags); }
+    function renderTagSugg(box, input, current) {
+      const sug = [...new Set((state.settings.tagSuggest || []).concat(current || []))].slice(0, 12);
+      box.innerHTML = sug.map((t) => `<button type="button" data-t="${esc(t)}" class="${(current || []).includes(t) ? 'on' : ''}">#${esc(t)}</button>`).join('');
+      box.querySelectorAll('[data-t]').forEach((el) => el.addEventListener('click', () => {
+        let cur = splitTags(input.value); const t = el.dataset.t;
+        cur = cur.includes(t) ? cur.filter((x) => x !== t) : cur.concat([t]).slice(0, state.settings.maxTags);
+        input.value = cur.join(' '); renderTagSugg(box, input, cur);
+      }));
     }
 
     function afterChange() { renderTop(); layout(true); renderGrid(); }
@@ -721,11 +893,16 @@
     setTimeout(hideHint, 9000);
 
     // ---- 本を足す ----
-    let picked = null;
-    $('addBtn').addEventListener('click', () => { closeSheet('detail'); $('fName').value = myName; openSheet('add'); setTimeout(() => $('q').focus(), 300); });
+    let picked = null, manual = false;
+    function renderWho() {
+      $('who').innerHTML = myName
+        ? `浮かべる人：<b>${esc(myName)}</b><button type="button" id="whoChange">変える</button>`
+        : `<button type="button" id="whoChange" class="btn small">名前を入れる</button>`;
+      $('whoChange').onclick = () => askName(renderWho);
+    }
+    $('addBtn').addEventListener('click', () => { closeSheet('detail'); openSheet('add'); renderWho(); setTimeout(() => $('q').focus(), 300); });
     $('q').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); search(); } });
     $('searchBtn').addEventListener('click', search);
-    $('manualBtn').addEventListener('click', () => usePick(null));
     $('manualBtn2').addEventListener('click', () => usePick(null));
     $('fObi').addEventListener('input', () => {
       const n = $('fObi').value.length, max = state.settings.maxObi;
@@ -734,9 +911,9 @@
 
     async function search() {
       const q = $('q').value.trim(); if (!q) return;
-      // 外部 API（国会図書館・Google Books）に順に問い合わせるので待たせる。経過秒数を見せて不安を減らす
+      // 外部 API（国会図書館・楽天）に問い合わせるので待たせる。経過秒数を見せて不安を減らす
       const started = Date.now();
-      const showWait = () => { const s = Math.round((Date.now() - started) / 1000); $('cands').innerHTML = `<p class="note">⏳ 国会図書館と Google Books に問い合わせ中… ${s} 秒${s >= 15 ? '（もう少しお待ちください）' : ''}</p>`; };
+      const showWait = () => { const s = Math.round((Date.now() - started) / 1000); $('cands').innerHTML = `<p class="note">⏳ 探しています… ${s} 秒${s >= 15 ? '（もう少しお待ちください）' : ''}</p>`; };
       showWait(); const waitTimer = setInterval(showWait, 1000);
       $('searchBtn').disabled = true;
       let cands = [];
@@ -783,16 +960,18 @@
     }
 
     function usePick(c) {
-      picked = c;
+      picked = c; manual = !c;
       $('cands').innerHTML = ''; $('manualRow').style.display = 'none';
       $('addForm').style.display = 'block';
+      $('manualFields').style.display = manual ? 'block' : 'none';
       $('picked').innerHTML = c
         ? `${c.cover ? `<img src="${esc(c.cover)}" alt="" />` : '<div class="noimg"></div>'}<div><b>${esc(c.title)}</b><br><small class="note">${esc(c.author || '')}${c.publisher ? '｜' + esc(c.publisher) : ''}</small></div>`
-        : '<div class="noimg"></div><div><small class="note">表紙はあとから自動で探します（ISBNが分かれば確実）</small></div>';
+        : '<div class="noimg"></div><div><small class="note">書名を入れてください。表紙や紹介文はあとから自動で探します</small></div>';
       $('fTitle').value = c ? c.title : $('q').value.trim();
       $('fAuthor').value = c ? (c.author || '') : '';
-      $('fPrice').value = c && c.price ? c.price : '';
-      $('fName').value = myName;
+      $('fTags').value = '';
+      renderTagSugg($('tagSugg'), $('fTags'), []);
+      renderWho();
       setTimeout(() => $('fObi').focus(), 100);
     }
 
@@ -800,17 +979,17 @@
       e.preventDefault();
       const obi = $('fObi').value.trim();
       if (obi.length > state.settings.maxObi) { toast('ひとことは' + state.settings.maxObi + '字までです', true); return; }
-      const name = $('fName').value.replace(/\s+/g, ' ').trim();
-      if (!name) { toast('名前を入れてください', true); return; }
-      myName = name; try { localStorage.setItem(NAME_KEY, name); } catch (err) { /* */ }
-      const body = { action: 'addBook', name, title: $('fTitle').value.trim(), author: $('fAuthor').value.trim(),
-        publisher: picked ? (picked.publisher || '') : '', price: Number($('fPrice').value) || null,
-        isbn: picked ? (picked.isbn || '') : '', cover: picked ? (picked.cover || '') : '', obi };
+      if (!myName) { askName(() => $('addSubmit').click()); return; }
+      const title = (manual ? $('fTitle').value : (picked ? picked.title : '')).trim();
+      if (!title) { toast('書名を入れてください', true); return; }
+      const body = { action: 'addBook', name: myName, title, author: (manual ? $('fAuthor').value : (picked ? picked.author : '')).trim(),
+        publisher: picked ? (picked.publisher || '') : '', price: picked && picked.price ? picked.price : null,
+        isbn: picked ? (picked.isbn || '') : '', cover: picked ? (picked.cover || '') : '', obi, tags: splitTags($('fTags').value) };
       $('addSubmit').disabled = true;
       const ok = await send(body);
       $('addSubmit').disabled = false;
       if (!ok) return;
-      $('addForm').reset(); $('addForm').style.display = 'none'; $('manualRow').style.display = ''; $('q').value = ''; picked = null;
+      $('addForm').reset(); $('addForm').style.display = 'none'; $('manualRow').style.display = ''; $('q').value = ''; picked = null; manual = false;
       closeSheet('add');
       afterChange();
       const added = state.books.find((b) => b.title === body.title);
@@ -822,7 +1001,7 @@
     let mode2d = false;
     function renderGrid() {
       if (!mode2d) return;
-      const books = state.books.slice().sort((a, b) => b.votes - a.votes);
+      const books = state.books.filter((b) => !genreFilter || (b.genre || '') === genreFilter).sort((a, b) => b.votes - a.votes);
       $('gridInner').innerHTML = books.map((b) => `
         <button type="button" data-id="${esc(b.id)}">
           ${coverImg(b)}
@@ -850,9 +1029,9 @@
       else { $('modeBtn').style.display = 'none'; setMode(true); }
       if (live) setInterval(async () => {
         if (document.hidden || $('add').classList.contains('open')) return;
-        const before = JSON.stringify(state.books.map((b) => [b.id, b.votes, b.cover]));
+        const before = JSON.stringify(state.books.map((b) => [b.id, b.votes, b.cover, b.genre, (b.tags || []).join(','), b.voters.map((v) => v.comment).join('|')]));
         await fetchState();
-        if (JSON.stringify(state.books.map((b) => [b.id, b.votes, b.cover])) !== before) afterChange();
+        if (JSON.stringify(state.books.map((b) => [b.id, b.votes, b.cover, b.genre, (b.tags || []).join(','), b.voters.map((v) => v.comment).join('|')])) !== before) afterChange();
       }, 45000);
     })();
   </script>

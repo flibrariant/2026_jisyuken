@@ -15,6 +15,55 @@ declare(strict_types=1);
 
 const HEARTS = 0;             // 一人あたりの「読みたい」数（0 = 何冊でも）
 const MAX_DESC = 800;         // 内容紹介の最大文字数
+const MAX_TAGS = 3;           // 1冊あたりの自由タグの数
+const MAX_COMMENT = 60;       // 「読みたい」に添える一言の最大文字数
+
+/**
+ * 大分類（日本十進分類 NDC の先頭から機械的に決める）。鍵は保存用、値は画面の表示名。
+ * 順番は銀河の並びにも使う
+ */
+const GENRES = [
+    'ai'      => 'AI・情報',
+    'books'   => '本・図書館',
+    'think'   => '考える・心',
+    'history' => '歴史・地域',
+    'society' => '社会・しごと',
+    'science' => '科学・自然',
+    'tech'    => '技術・くらし',
+    'art'     => 'アート・あそび',
+    'words'   => 'ことば',
+    'story'   => '物語・エッセイ',
+    'other'   => 'その他',
+];
+
+/** 楽天ブックスのジャンル ID（先頭 6 桁。例: "001012" パソコン・システム開発）→ 大分類の鍵。NDC が無い本の予備 */
+function genreFromRakuten(string $gid): string {
+    $m = ['001012' => 'ai', '001004' => 'think', '001005' => 'society', '001006' => 'science', '001013' => 'science', '001002' => 'words',
+          '001017' => 'story', '001016' => 'story', '001001' => 'story', '001003' => 'story', '001008' => 'art', '001011' => 'art', '001019' => 'art',
+          '001009' => 'tech', '001007' => 'history', '001010' => 'society'];
+    return $m[substr($gid, 0, 6)] ?? '';
+}
+
+/** NDC（例: "007.13", "019.021", "913.6"）→ 大分類の鍵 */
+function genreFromNdc(string $ndc): string {
+    $d = preg_replace('/[^0-9]/', '', $ndc);
+    if ($d === '') return '';
+    $c3 = substr($d . '00', 0, 3);
+    if ($c3 === '007' || substr($c3, 0, 2) === '54' && in_array($c3, ['547', '548', '549'], true)) return 'ai'; // 情報科学・通信・電子計算機
+    switch ($d[0]) {
+        case '0': return (int)$c3 < 10 ? 'think' : 'books'; // 000-009 は知識・学問（考える）、010- は図書館・読書・出版
+        case '1': return 'think';
+        case '2': return 'history';
+        case '3': return 'society';
+        case '4': return 'science';
+        case '5': return 'tech';
+        case '6': return 'society';   // 産業も「社会・しごと」に寄せる
+        case '7': return 'art';
+        case '8': return 'words';
+        case '9': return 'story';
+    }
+    return 'other';
+}
 const MAX_OBI = 100;          // 一言の最大文字数
 const RESOLVE_PER_REQUEST = 2; // 1リクエストあたり、表紙や定価を補完する本の数
 
@@ -75,6 +124,8 @@ try {
         if ($action === 'vote') vote($db, $body, true);
         elseif ($action === 'unvote') vote($db, $body, false);
         elseif ($action === 'addBook') addBook($db, $body);
+        elseif ($action === 'tags') setTags($db, $body);
+        elseif ($action === 'genre') setGenre($db, $body);
         else throw new RuntimeException('不明な操作です');
         json(state($db));
     } else {
@@ -108,9 +159,12 @@ function openDb(string $path): PDO {
         book_id TEXT NOT NULL, name TEXT NOT NULL, created_at TEXT, PRIMARY KEY (book_id, name))');
     // あとから足した列（古い DB にも追加する）
     $cols = array_column($db->query('PRAGMA table_info(books)')->fetchAll(PDO::FETCH_ASSOC), 'name');
-    foreach (['description' => 'TEXT DEFAULT ""', 'pubdate' => 'TEXT DEFAULT ""', 'pages' => 'INTEGER', 'desc_src' => 'TEXT DEFAULT ""'] as $col => $type) {
+    foreach (['description' => 'TEXT DEFAULT ""', 'pubdate' => 'TEXT DEFAULT ""', 'pages' => 'INTEGER', 'desc_src' => 'TEXT DEFAULT ""',
+              'ndc' => 'TEXT DEFAULT ""', 'genre' => 'TEXT DEFAULT ""', 'tags' => 'TEXT DEFAULT "[]"'] as $col => $type) {
         if (!in_array($col, $cols, true)) $db->exec("ALTER TABLE books ADD COLUMN $col $type");
     }
+    $vcols = array_column($db->query('PRAGMA table_info(votes)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+    if (!in_array('comment', $vcols, true)) $db->exec('ALTER TABLE votes ADD COLUMN comment TEXT DEFAULT ""');
     return $db;
 }
 
@@ -132,16 +186,22 @@ function seedIfEmpty(PDO $db): void {
 }
 
 function state(PDO $db): array {
-    $books = $db->query('SELECT id,title,author,publisher,price,isbn,cover_url,url,obi,proposer,created_at,description,pubdate,pages,desc_src FROM books ORDER BY created_at, id')->fetchAll(PDO::FETCH_ASSOC);
-    $votes = $db->query('SELECT book_id, name FROM votes ORDER BY created_at')->fetchAll(PDO::FETCH_ASSOC);
+    $books = $db->query('SELECT id,title,author,publisher,price,isbn,cover_url,url,obi,proposer,created_at,description,pubdate,pages,desc_src,ndc,genre,tags FROM books ORDER BY created_at, id')->fetchAll(PDO::FETCH_ASSOC);
+    $votes = $db->query('SELECT book_id, name, comment FROM votes ORDER BY created_at')->fetchAll(PDO::FETCH_ASSOC);
     $byBook = [];
-    foreach ($votes as $v) $byBook[$v['book_id']][] = $v['name'];
+    foreach ($votes as $v) $byBook[$v['book_id']][] = ['name' => $v['name'], 'comment' => (string)($v['comment'] ?? '')];
+    $tagCount = [];
     foreach ($books as &$b) {
         $b['price'] = $b['price'] === null ? null : (int)$b['price'];
         $b['pages'] = $b['pages'] === null ? null : (int)$b['pages'];
         $b['description'] = (string)($b['description'] ?? '');
         $b['pubdate'] = (string)($b['pubdate'] ?? '');
         $b['desc_src'] = (string)($b['desc_src'] ?? ''); // openbd / rakuten / google / ndl / ai
+        $b['ndc'] = (string)($b['ndc'] ?? '');
+        $b['genre'] = (string)($b['genre'] ?? '');
+        if ($b['genre'] === '' && $b['ndc'] !== '') $b['genre'] = genreFromNdc($b['ndc']);
+        $b['tags'] = json_decode((string)($b['tags'] ?? '[]'), true) ?: [];
+        foreach ($b['tags'] as $t) $tagCount[$t] = ($tagCount[$t] ?? 0) + 1;
         $b['voters'] = $byBook[$b['id']] ?? [];
         $b['votes'] = count($b['voters']);
         // 表紙は同一オリジンのプロキシ経由（キャッシュ済みか、ISBN か URL が分かっていれば取りに行く）
@@ -150,7 +210,9 @@ function state(PDO $db): array {
             ? 'api.php?cover=' . rawurlencode($b['id']) . '&v=' . substr(md5($b['isbn'] . '|' . $b['cover_url']), 0, 8) : '';
         unset($b['cover_url']);
     }
-    return ['settings' => ['hearts' => HEARTS, 'maxObi' => MAX_OBI], 'books' => $books];
+    arsort($tagCount);
+    return ['settings' => ['hearts' => HEARTS, 'maxObi' => MAX_OBI, 'maxTags' => MAX_TAGS, 'maxComment' => MAX_COMMENT, 'genres' => GENRES,
+        'tagSuggest' => array_slice(array_keys($tagCount), 0, 20)], 'books' => $books];
 }
 
 // ---------------------------------------------------------------- 操作
@@ -173,7 +235,10 @@ function vote(PDO $db, array $body, bool $on): void {
         $has = $db->prepare('SELECT 1 FROM votes WHERE book_id = ? AND name = ?');
         $has->execute([$bookId, $name]);
         if (HEARTS > 0 && !$has->fetchColumn() && (int)$cnt->fetchColumn() >= HEARTS) throw new RuntimeException('「読みたい」は' . HEARTS . '冊までです。どれかを外してください');
-        $db->prepare('INSERT OR IGNORE INTO votes (book_id, name, created_at) VALUES (?,?,?)')->execute([$bookId, $name, gmdate('c')]);
+        // 一言（任意）。すでに入れていれば一言だけ更新する
+        $comment = clean($body['comment'] ?? '', MAX_COMMENT);
+        $db->prepare('INSERT INTO votes (book_id, name, comment, created_at) VALUES (?,?,?,?)
+            ON CONFLICT(book_id, name) DO UPDATE SET comment = excluded.comment')->execute([$bookId, $name, $comment, gmdate('c')]);
     } else {
         $db->prepare('DELETE FROM votes WHERE book_id = ? AND name = ?')->execute([$bookId, $name]);
     }
@@ -185,7 +250,9 @@ function addBook(PDO $db, array $body): void {
     $obi = clean($body['obi'] ?? '', MAX_OBI);
     if ($title === '') throw new RuntimeException('タイトルを入れてください');
     if ($name === '') throw new RuntimeException('名前を入れてください');
-    if ($obi === '') throw new RuntimeException('ひとこと（推薦の言葉）を入れてください');
+    $tags = normTags($body['tags'] ?? []);
+    $genre = (string)($body['genre'] ?? '');
+    if ($genre !== '' && !isset(GENRES[$genre])) $genre = '';
     $isbn = preg_replace('/[^0-9X]/', '', (string)($body['isbn'] ?? ''));
     $cover = (string)($body['cover'] ?? '');
     if ($cover !== '' && !preg_match('#^https?://#', $cover)) $cover = '';
@@ -196,8 +263,39 @@ function addBook(PDO $db, array $body): void {
     $dup->execute([$isbn, $title]);
     if ($dup->fetchColumn()) throw new RuntimeException('その本はもう登録されています');
     $id = 'b' . substr(bin2hex(random_bytes(6)), 0, 10);
-    $db->prepare('INSERT INTO books (id,title,author,publisher,price,isbn,cover_url,url,obi,proposer,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-        ->execute([$id, $title, clean($body['author'] ?? '', 80), clean($body['publisher'] ?? '', 60), $price, $isbn, $cover, mb_substr($url, 0, 300), $obi, $name, gmdate('c')]);
+    $db->prepare('INSERT INTO books (id,title,author,publisher,price,isbn,cover_url,url,obi,proposer,created_at,tags,genre) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
+        ->execute([$id, $title, clean($body['author'] ?? '', 80), clean($body['publisher'] ?? '', 60), $price, $isbn, $cover, mb_substr($url, 0, 300), $obi, $name, gmdate('c'),
+            json_encode($tags, JSON_UNESCAPED_UNICODE), $genre]);
+}
+
+/** タグを整える: 空白除去、12文字まで、重複なし、最大 MAX_TAGS 個 */
+function normTags($raw): array {
+    $out = [];
+    foreach (is_array($raw) ? $raw : [] as $t) {
+        $t = mb_substr(preg_replace('/[\s#＃]+/u', '', (string)$t) ?? '', 0, 12);
+        if ($t !== '' && !in_array($t, $out, true)) $out[] = $t;
+        if (count($out) >= MAX_TAGS) break;
+    }
+    return $out;
+}
+
+/** 誰でもタグを付け直せる（最大 MAX_TAGS 個で置き換え） */
+function setTags(PDO $db, array $body): void {
+    $bookId = clean($body['bookId'] ?? '', 40);
+    $tags = normTags($body['tags'] ?? []);
+    $st = $db->prepare('UPDATE books SET tags = ? WHERE id = ?');
+    $st->execute([json_encode($tags, JSON_UNESCAPED_UNICODE), $bookId]);
+    if ($st->rowCount() === 0) throw new RuntimeException('その本は見つかりません');
+}
+
+/** 大分類を手で直す（自動判定が外れていたとき） */
+function setGenre(PDO $db, array $body): void {
+    $bookId = clean($body['bookId'] ?? '', 40);
+    $genre = (string)($body['genre'] ?? '');
+    if (!isset(GENRES[$genre])) throw new RuntimeException('その分類はありません');
+    $st = $db->prepare('UPDATE books SET genre = ? WHERE id = ?');
+    $st->execute([$genre, $bookId]);
+    if ($st->rowCount() === 0) throw new RuntimeException('その本は見つかりません');
 }
 
 // ---------------------------------------------------------------- 書誌の補完
@@ -269,8 +367,19 @@ function authorMatches(string $want, string $got): bool {
 function ndlSearch(string $title, string $author = '', int $max = 3): array {
     $title = trim(mb_substr($title, 0, 60));
     if ($title === '') return [];
-    $params = ['title' => $title, 'cnt' => $max, 'mediatype' => 'books'];
+    $params = ['title' => $title];
     if ($author !== '') $params['creator'] = mb_substr($author, 0, 20);
+    return ndlQuery($params, $max);
+}
+
+/** ISBN で NDL を引く（NDC＝分類を取るため） */
+function ndlByIsbn(string $isbn): ?array {
+    $hits = ndlQuery(['isbn' => $isbn], 1);
+    return $hits ? $hits[0] : null;
+}
+
+function ndlQuery(array $params, int $max): array {
+    $params += ['cnt' => $max, 'mediatype' => 'books'];
     $raw = httpGet('https://ndlsearch.ndl.go.jp/api/opensearch?' . http_build_query($params), 15); // NDL は遅いときがある
     if ($raw === null || !preg_match_all('#<item>(.*?)</item>#s', $raw, $m)) return [];
     $out = [];
@@ -288,8 +397,12 @@ function ndlSearch(string $title, string $author = '', int $max = 3): array {
         $price = preg_match('/(\d[\d,]*)/', $priceRaw, $pm) ? (int)round((int)str_replace(',', '', $pm[1]) * 1.1) : null;
         if ($t === '' || strlen($isbn) !== 13) continue;
         $pages = preg_match('/(\d+)\s*p/u', $get('#<dc:extent>([^<]+)#'), $pm) ? (int)$pm[1] : null; // 例: "285p"
+        // 分類: NDC10 を優先、無ければ NDC9（例: <dc:subject xsi:type="dcndl:NDC10">019.021</dc:subject>）
+        $ndc = $get('#<dc:subject[^>]*dcndl:NDC10[^>]*>([^<]+)#');
+        if ($ndc === '') $ndc = $get('#<dc:subject[^>]*dcndl:NDC9[^>]*>([^<]+)#');
+        if ($ndc === '') $ndc = $get('#<dc:subject[^>]*dcndl:NDC[^>]*>([^<]+)#');
         $out[] = ['title' => $t, 'author' => $creator, 'publisher' => $publisher, 'isbn' => $isbn, 'cover' => '', 'price' => $price,
-            'date' => $get('#<dcterms:issued>([^<]+)#'), 'description' => '', 'pages' => $pages];
+            'date' => $get('#<dcterms:issued>([^<]+)#'), 'description' => '', 'pages' => $pages, 'ndc' => $ndc];
     }
     return $out;
 }
@@ -405,6 +518,7 @@ function rakutenBooks(array $q, int $max = 5): array {
             'author' => str_replace('/', '・', (string)($it['author'] ?? '')), 'publisher' => (string)($it['publisherName'] ?? ''),
             'isbn' => $isbn, 'cover' => $cover, 'price' => !empty($it['itemPrice']) ? (int)$it['itemPrice'] : null,
             'description' => cleanDesc((string)($it['itemCaption'] ?? '')), 'date' => (string)($it['salesDate'] ?? ''), 'pages' => null,
+            'rgenre' => genreFromRakuten((string)($it['booksGenreId'] ?? '')),
         ];
     }
     return $out;
@@ -454,6 +568,11 @@ function lookup(string $q): array {
     }
     // 楽天ブックス: 紹介文と表紙が揃った候補（アプリ ID がある場合だけ）
     foreach (rakutenBooks(['title' => $q], 4) as $k) if ($k['isbn'] !== '') $cands[] = $k;
+    // 同じ ISBN の重複を落とす（NDL と楽天で同じ本が出る）
+    $seen = [];
+    $cands = array_values(array_filter($cands, function ($c) use (&$seen) { $k = $c['isbn'] ?: $c['title']; if (isset($seen[$k])) return false; $seen[$k] = true; return true; }));
+    // Google は遅く、関係ない本も混ざるので、候補が少ないときだけ
+    if (count($cands) >= 3) return array_slice($cands, 0, 8);
     foreach (googleBooks($q) as $g) {
         if ($g['isbn'] !== '') {
             $b = openbd($g['isbn']);
@@ -471,8 +590,8 @@ function lookup(string $q): array {
 
 /** 表紙や定価が欠けている本を、少しずつ補完する（1リクエストに数冊まで、各本5回まで試す。NDL が遅くて失敗することがあるため多め） */
 function resolveSome(PDO $db): void {
-    $rows = $db->query('SELECT id,title,author,publisher,isbn,cover_url,price,description,pubdate,pages,desc_src FROM books
-        WHERE (cover_url = "" OR price IS NULL OR isbn = "" OR description IS NULL OR description = "" OR pubdate IS NULL OR pubdate = "") AND resolve_tries < 5
+    $rows = $db->query('SELECT id,title,author,publisher,isbn,cover_url,price,description,pubdate,pages,desc_src,ndc,genre FROM books
+        WHERE (cover_url = "" OR price IS NULL OR isbn = "" OR description IS NULL OR description = "" OR pubdate IS NULL OR pubdate = "" OR ndc IS NULL OR ndc = "") AND resolve_tries < 5
         ORDER BY resolve_tries, created_at LIMIT ' . RESOLVE_PER_REQUEST)->fetchAll(PDO::FETCH_ASSOC);
     foreach ($rows as $r) {
         $db->prepare('UPDATE books SET resolve_tries = resolve_tries + 1 WHERE id = ?')->execute([$r['id']]);
@@ -483,8 +602,13 @@ function resolveSome(PDO $db): void {
         $pubdate = (string)($r['pubdate'] ?? '');
         $pages = $r['pages'] !== null ? (int)$r['pages'] : null;
         $descSrc = (string)($r['desc_src'] ?? '');
-        $take = function (array $src, string $from = '') use (&$cover, &$price, &$desc, &$pubdate, &$pages, &$descSrc): void {
+        $ndc = (string)($r['ndc'] ?? '');
+        $genre = (string)($r['genre'] ?? '');
+        $rgenre = '';
+        $take = function (array $src, string $from = '') use (&$cover, &$price, &$desc, &$pubdate, &$pages, &$descSrc, &$ndc, &$rgenre): void {
             // 欠けているものだけ候補から埋める
+            if ($ndc === '' && ($src['ndc'] ?? '') !== '') $ndc = $src['ndc'];
+            if ($rgenre === '' && ($src['rgenre'] ?? '') !== '') $rgenre = $src['rgenre'];
             if ($cover === '' && ($src['cover'] ?? '') !== '') $cover = $src['cover'];
             if ($price === null && ($src['price'] ?? null) !== null) $price = $src['price'];
             if ($desc === '' && ($src['description'] ?? '') !== '') { $desc = $src['description']; $descSrc = $from; }
@@ -532,7 +656,7 @@ function resolveSome(PDO $db): void {
             $b = openbd($isbn);
             if ($b) { if ($b['cover'] !== '') $cover = $b['cover']; $take($b, 'openbd'); }
             // 楽天ブックス: 出版社の紹介文・表紙・定価・発売日（ISBN で確実に引ける）
-            if ($cover === '' || $desc === '' || $price === null || $pubdate === '') {
+            if ($cover === '' || $desc === '' || $price === null || $pubdate === '' || ($ndc === '' && $genre === '')) {
                 foreach (rakutenBooks(['isbn' => $isbn], 1) as $k) $take($k, 'rakuten');
             }
             // まだ欠けていれば Google Books を引く（表紙サムネイル、紹介文、ページ数）。
@@ -557,13 +681,18 @@ function resolveSome(PDO $db): void {
                 }
             }
         }
+        // 分類（NDC）: NDL を ISBN で引く。分類が取れたら大分類を自動で付ける（手で直してあれば触らない）
+        if ($isbn !== '' && $ndc === '') { $n = ndlByIsbn($isbn); if ($n) $take($n, 'ndl'); }
+        // 大分類は保存せず、画面に出すときに NDC から毎回決める（genre 列は手で直したときだけ使う）。
+        // NDC がどうしても取れない本だけ、楽天のジャンルから決めて保存する
+        if ($ndc === '' && $genre === '' && $rgenre !== '' && (int)$db->query("SELECT resolve_tries FROM books WHERE id = " . $db->quote($r['id']))->fetchColumn() >= 2) $genre = $rgenre;
         // 最後の手段: どの取得元にも紹介文が無ければ Claude に書いてもらう（desc_src = 'ai' で画面に明示）
         if ($desc === '' && anthropicKey() !== '') {
             $ai = aiDescription($r['title'], $r['author'], (string)($r['publisher'] ?? ''), $pubdate);
             if ($ai !== '') { $desc = $ai; $descSrc = 'ai'; }
         }
-        $db->prepare('UPDATE books SET isbn = ?, cover_url = ?, price = ?, description = ?, pubdate = ?, pages = ?, desc_src = ? WHERE id = ?')
-            ->execute([$isbn, $cover, $price, $desc, $pubdate, $pages, $descSrc, $r['id']]);
+        $db->prepare('UPDATE books SET isbn = ?, cover_url = ?, price = ?, description = ?, pubdate = ?, pages = ?, desc_src = ?, ndc = ?, genre = ? WHERE id = ?')
+            ->execute([$isbn, $cover, $price, $desc, $pubdate, $pages, $descSrc, $ndc, $genre, $r['id']]);
     }
 }
 
